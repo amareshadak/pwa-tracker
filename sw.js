@@ -1,5 +1,5 @@
 /* Daily Tracker — service worker: offline cache + web push */
-const CACHE = 'daily-tracker-v3';
+const CACHE = 'daily-tracker-v4';
 const ASSETS = [
   './',
   './index.html',

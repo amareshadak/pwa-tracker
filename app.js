@@ -18,6 +18,31 @@ const fmtMoney = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximum
 const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/* ---------- theme (light / dark / auto) ---------- */
+function isDark() {
+  const pref = (S.settings && S.settings.theme) || 'auto';
+  if (pref === 'dark') return true;
+  if (pref === 'light') return false;
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function applyTheme() {
+  const dark = isDark();
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const meta = document.getElementById('themeColorMeta');
+  if (meta) meta.content = dark ? '#14121f' : '#6366f1';
+  if (typeof Chart !== 'undefined') {
+    Chart.defaults.color = dark ? '#a8a3c2' : '#6b6786';
+    Chart.defaults.borderColor = dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
+  }
+}
+
+/* ---------- twemoji: crisp colored icons on every device ---------- */
+function twemojify(root) {
+  if (typeof twemoji !== 'undefined') {
+    try { twemoji.parse(root || document.body, { folder: 'svg', ext: '.svg' }); } catch (_) {}
+  }
+}
+
 function toast(msg) {
   const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 2200);
@@ -243,6 +268,7 @@ function render() {
   if (currentView === 'expenses') renderExpenses();
   if (currentView === 'settings') renderSettings();
   renderStreakBadge();
+  twemojify();
 }
 
 function renderStreakBadge() {
@@ -673,6 +699,10 @@ function renderSettings() {
 
   $('pinToggleBtn').textContent = S.settings.pin ? 'Change / remove PIN' : 'Set PIN';
   $('logoutBtn').style.display = hasSupabase ? '' : 'none';
+
+  // theme selector
+  const pref = S.settings.theme || 'auto';
+  $('themeSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === pref));
 }
 
 function recurringModal(r) {
@@ -761,7 +791,7 @@ function categoryModal(c) {
 }
 
 /* ---------- modal helpers ---------- */
-function openModal(html) { $('modalBox').innerHTML = html; $('modal').classList.remove('hidden'); }
+function openModal(html) { $('modalBox').innerHTML = html; $('modal').classList.remove('hidden'); setTimeout(() => twemojify($('modalBox')), 0); }
 function closeModal() { $('modal').classList.add('hidden'); }
 
 /* ---------- PIN lock ---------- */
@@ -846,6 +876,12 @@ function exportCSV() {
 /* ---------- auth + boot ---------- */
 async function boot() {
   loadLocal();
+  applyTheme();
+  if (typeof matchMedia !== 'undefined') {
+    try {
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { applyTheme(); render(); });
+    } catch (_) {}
+  }
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(console.warn);
@@ -913,6 +949,10 @@ $('logoutBtn').onclick = async () => {
   localStorage.removeItem(LS_KEY); localStorage.removeItem(QUEUE_KEY);
   location.reload();
 };
+$('themeSeg').querySelectorAll('button').forEach(b => b.onclick = () => {
+  S.settings.theme = b.dataset.t; saveLocal();
+  applyTheme(); render();
+});
 $('expenseRange').querySelectorAll('button').forEach(b => b.onclick = () => {
   expenseRange = b.dataset.r;
   $('expenseRange').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));

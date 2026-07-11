@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Daily Tracker</title>
-<meta name="theme-color" content="#6366f1">
+<meta name="theme-color" content="#6366f1" id="themeColorMeta">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.1.0/dist/twemoji.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -126,6 +127,13 @@
 
     <!-- SETTINGS -->
     <section id="view-settings" class="view hidden">
+      <h2 class="section-title">Appearance</h2>
+      <div class="seg" id="themeSeg">
+        <button data-t="auto">🌗 Auto</button>
+        <button data-t="light">☀️ Light</button>
+        <button data-t="dark">🌙 Dark</button>
+      </div>
+
       <h2 class="section-title">Notifications</h2>
       <div class="card">
         <button class="btn-primary" id="enablePushBtn">🔔 Enable Push Notifications</button>
