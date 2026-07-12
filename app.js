@@ -309,8 +309,8 @@ function renderToday() {
     const done = log && log.completed;
     const row = document.createElement('div');
     row.className = 'habit-row' + (done ? ' done' : '');
-    const sub = h.type === 'yesno' ? (h.reminder_time ? '⏰ ' + h.reminder_time : '') :
-      `${val}/${h.target} ${h.unit} · ⏰ ${h.reminder_time || ''}`;
+    const sub = h.type === 'yesno' ? (h.reminder_time ? ic('clock') + ' ' + h.reminder_time : '') :
+      `${val}/${h.target} ${h.unit} · ${ic('clock')} ${h.reminder_time || ''}`;
     row.innerHTML = `<div class="habit-emoji">${ic(h.icon)}</div>
       <div class="habit-info"><div class="habit-name">${h.name}</div><div class="habit-sub">${sub}</div></div>`;
     if (h.type === 'yesno') {
@@ -472,7 +472,7 @@ function renderHabits() {
     card.innerHTML = `<div class="habit-card-top">
         <div class="habit-emoji">${ic(h.icon)}</div>
         <div class="habit-info"><div class="habit-name">${h.name}</div>
-          <div class="habit-sub">⏰ ${h.reminder_time || 'no reminder'} · ${(h.schedule||[]).length ? (h.schedule.map(d=>DOW[d]).join(' ')) : 'daily'}</div></div>
+          <div class="habit-sub">${ic('clock')} ${h.reminder_time || 'no reminder'} · ${(h.schedule||[]).length ? (h.schedule.map(d=>DOW[d]).join(' ')) : 'daily'}</div></div>
         <div class="pill pill-flame">${ic('flame')} ${st.cur}</div></div>
       <div class="streak-pills">
         <span class="pill">Best: ${st.best}</span>
@@ -506,12 +506,12 @@ function showHabitDetail(h) {
     }
   }
   wrap.innerHTML = `
-    <button class="btn-small" id="backToHabits">← Back</button>
+    <button class="btn-small" id="backToHabits">${ic('arrow-left')} Back</button>
     <div class="habit-card" style="margin-top:10px">
       <div class="habit-card-top">
         <div class="habit-emoji">${ic(h.icon)}</div>
         <div class="habit-info"><div class="habit-name">${h.name}</div>
-        <div class="habit-sub">${h.type === 'yesno' ? 'Yes / No' : `Target: ${h.target} ${h.unit}`} · ⏰ ${h.reminder_time}</div></div>
+        <div class="habit-sub">${h.type === 'yesno' ? 'Yes / No' : `Target: ${h.target} ${h.unit}`} · ${ic('clock')} ${h.reminder_time}</div></div>
       </div>
       <div class="streak-pills">
         <span class="pill pill-flame">${ic('flame')} Current: ${st.cur}</span><span class="pill">${ic('trophy')} Best: ${st.best}</span>
@@ -553,7 +553,7 @@ function habitModal(h) {
       <label>Daily target</label><input id="mh_target" type="number" value="${h.target}" min="1">
       <label>Unit</label><input id="mh_unit" value="${h.unit}" placeholder="glasses / min / pages">
     </div>
-    <label>Reminder time ⏰</label><input id="mh_time" type="time" value="${h.reminder_time}">
+    <label>Reminder time</label><input id="mh_time" type="time" value="${h.reminder_time}">
     <label>Days (none selected = every day)</label><div class="day-row" id="mh_days"></div>
     <div class="modal-actions">
       <button class="btn-primary" id="mh_save">Save</button>
@@ -622,7 +622,7 @@ function renderExpenses() {
   drawChart('chartCats', {
     type: 'doughnut',
     data: {
-      labels: catIds.map(id => { const c = S.categories.find(x => x.id === id); return c ? `${c.icon} ${c.name}` : '?'; }),
+      labels: catIds.map(id => { const c = S.categories.find(x => x.id === id); return c ? c.name : '?'; }),
       datasets: [{ data: catIds.map(id => byCat[id]),
         backgroundColor: catIds.map(id => (S.categories.find(x => x.id === id) || {}).color || '#9BA89C') }]
     },
@@ -637,7 +637,7 @@ function renderExpenses() {
     const pct = Math.min(100, spent / c.monthly_budget * 100);
     const cls = pct >= 100 ? 'over' : pct >= 80 ? 'warn' : '';
     const el = document.createElement('div'); el.className = 'budget-item';
-    el.innerHTML = `<div class="budget-top"><span>${c.icon} ${c.name}</span>
+    el.innerHTML = `<div class="budget-top"><span class="row-ic-inline">${ic(c.icon)}${c.name}</span>
       <span>${fmtMoney(spent)} / ${fmtMoney(c.monthly_budget)}</span></div>
       <div class="budget-bar"><div class="budget-fill ${cls}" style="width:${pct}%"></div></div>`;
     bWrap.appendChild(el);
@@ -718,6 +718,8 @@ function renderSettings() {
   // theme selector
   const pref = S.settings.theme || 'auto';
   $('themeSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === pref));
+
+  refreshIcons();
 }
 
 function recurringModal(r) {
