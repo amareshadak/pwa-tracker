@@ -235,6 +235,8 @@ svg.lucide { width: 20px; height: 20px; stroke-width: 2; vertical-align: -0.22em
 .pin-pad button { width: 72px; height: 72px; border-radius: 50%; border: none; font-size: 1.5rem; font-weight: 700;
   background: rgba(248,250,237,.1); color: #F8FAED; cursor: pointer; }
 .pin-pad button:active { background: rgba(80,166,92,.5); }
+.link-btn { margin-top: 22px; background: none; border: none; color: #9AC49F; font-size: .9rem;
+  text-decoration: underline; cursor: pointer; }
 
 /* FAB */
 #fab { position: fixed; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);

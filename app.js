@@ -845,6 +845,15 @@ function pinFlow(mode, onOk) { // mode: 'enter'|'set'
   let entry = '', firstPin = null;
   const dots = $('pinDots').children;
   const refresh = () => { for (let i = 0; i < 4; i++) dots[i].classList.toggle('fill', i < entry.length); };
+  const forgotBtn = $('pinForgotBtn');
+  forgotBtn.classList.toggle('hidden', mode !== 'enter');
+  forgotBtn.onclick = async () => {
+    if (await confirmDlg('Reset PIN? Removes the lock — set a new PIN from Settings.', 'Reset')) {
+      S.settings.pin = null; saveLocal();
+      scr.classList.add('hidden');
+      onOk();
+    }
+  };
   const pad = $('pinPad'); pad.innerHTML = '';
   [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k => {
     const b = document.createElement('button');
