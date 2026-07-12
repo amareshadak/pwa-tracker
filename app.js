@@ -659,6 +659,8 @@ function renderExpenses() {
 function drawChart(id, config) {
   if (charts[id]) charts[id].destroy();
   if (typeof Chart === 'undefined') return; // offline without cached CDN
+  config.options = config.options || {};
+  config.options.layout = Object.assign({ padding: { top: 12 } }, config.options.layout || {});
   charts[id] = new Chart($(id), config);
 }
 
