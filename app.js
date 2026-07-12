@@ -626,7 +626,7 @@ function renderExpenses() {
       datasets: [{ data: catIds.map(id => byCat[id]),
         backgroundColor: catIds.map(id => (S.categories.find(x => x.id === id) || {}).color || '#9BA89C') }]
     },
-    options: { plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } } } }
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 } } } } }
   });
 
   // budgets (always current month)
@@ -637,8 +637,8 @@ function renderExpenses() {
     const pct = Math.min(100, spent / c.monthly_budget * 100);
     const cls = pct >= 100 ? 'over' : pct >= 80 ? 'warn' : '';
     const el = document.createElement('div'); el.className = 'budget-item';
-    el.innerHTML = `<div class="budget-top"><span class="row-ic-inline">${ic(c.icon)}${c.name}</span>
-      <span>${fmtMoney(spent)} / ${fmtMoney(c.monthly_budget)}</span></div>
+    el.innerHTML = `<div class="budget-top"><span class="row-ic-inline"><span class="ic">${ic(c.icon)}</span><span class="txt">${c.name}</span></span>
+      <span class="budget-amt">${fmtMoney(spent)} / ${fmtMoney(c.monthly_budget)}</span></div>
       <div class="budget-bar"><div class="budget-fill ${cls}" style="width:${pct}%"></div></div>`;
     bWrap.appendChild(el);
   });
@@ -649,7 +649,7 @@ function renderExpenses() {
   S.accounts.forEach(a => {
     const t = list.filter(e => e.account_id === a.id).reduce((s, e) => s + Number(e.amount), 0);
     const el = document.createElement('div'); el.className = 'setting-row';
-    el.innerHTML = `<span class="row-ic">${ic(a.icon)}</span><span class="grow">${a.name}</span><b>${fmtMoney(t)}</b>`;
+    el.innerHTML = `<span class="row-ic">${ic(a.icon)}</span><span class="grow truncate">${a.name}</span><b>${fmtMoney(t)}</b>`;
     aWrap.appendChild(el);
   });
 
