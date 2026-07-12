@@ -69,6 +69,18 @@ select cron.schedule('send-reminders', '*/5 * * * *', $$
 ### 5. Redeploy + enable on phone
 Redeploy the folder (config.js changed), open the app **from the Home Screen icon**, sign in, then Settings → **Enable Push Notifications**.
 
+### 6. AI quick-fill (optional)
+The expense sheet has an "Or type: 250 lunch swiggy hdfc" field that uses Gemini to prefill amount/category/account/note — you still review and tap **Add Expense** yourself, nothing auto-saves.
+
+Get a free API key at [Google AI Studio](https://aistudio.google.com/apikey), then:
+
+```bash
+supabase secrets set GEMINI_API_KEY="..."
+supabase functions deploy parse-expense
+```
+
+(No `--no-verify-jwt` here — the platform checks the user is logged in before running it, so the free quota can't be hit by strangers.)
+
 ## What's inside
 
 ```
@@ -78,6 +90,7 @@ manifest.webmanifest, sw.js, icons — PWA install + offline + push
 supabase/schema.sql                — tables + row-level security
 supabase/functions/send-reminders  — cron push sender (habit reminders,
                                      missed-habit alerts, expense nudge)
+supabase/functions/parse-expense   — AI quick-fill for the expense sheet (Gemini)
 ```
 
 ## Notes

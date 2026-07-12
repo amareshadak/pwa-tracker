@@ -835,10 +835,50 @@ function confirmDlg(msg, actionLabel) {
 /* expense bottom sheet */
 function openSheet() {
   $('qeDate').value = todayStr();
+  $('qeAiText').value = '';
   renderQuickExpense();
   $('expenseSheet').classList.remove('hidden');
   refreshIcons();
   setTimeout(() => $('qeAmount').focus(), 100);
+}
+
+/* AI quick-fill — parses free text into the existing form fields via Gemini (Supabase edge function) */
+async function aiFillExpense() {
+  const text = $('qeAiText').value.trim();
+  if (!text) { toast('Type something first'); return; }
+  if (!hasSupabase || !sb || !sessionUser) { toast('Sign in required for AI fill'); return; }
+  if (!S.accounts.length || !S.categories.length) { toast('Add an account and category first'); return; }
+
+  const btn = $('qeAiBtn');
+  const origHtml = btn.innerHTML;
+  btn.disabled = true; btn.classList.add('loading');
+  btn.innerHTML = ic('loader-circle'); refreshIcons();
+
+  try {
+    const { data, error } = await sb.functions.invoke('parse-expense', {
+      body: {
+        text,
+        categories: S.categories.map(c => ({ id: c.id, name: c.name })),
+        accounts: S.accounts.map(a => ({ id: a.id, name: a.name }))
+      }
+    });
+    if (error) throw error;
+    if (data && data.error) throw new Error(data.error);
+
+    if (data.amount) $('qeAmount').value = data.amount;
+    if (data.account_id && S.accounts.some(a => a.id === data.account_id)) qeSelAccount = data.account_id;
+    if (data.category_id && S.categories.some(c => c.id === data.category_id)) qeSelCategory = data.category_id;
+    if (data.note) $('qeNote').value = data.note;
+    if (data.date) $('qeDate').value = data.date;
+    renderQuickExpense();
+    toast('Filled — check & save');
+  } catch (e) {
+    console.error(e);
+    toast('AI fill failed: ' + (e.message || e));
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading');
+    btn.innerHTML = origHtml; refreshIcons();
+  }
 }
 function closeSheet() { $('expenseSheet').classList.add('hidden'); }
 
@@ -993,6 +1033,7 @@ function startApp() {
 /* ---------- events ---------- */
 document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => switchView(b.dataset.view));
 $('qeSave').onclick = saveQuickExpense;
+$('qeAiBtn').onclick = aiFillExpense;
 $('fab').onclick = openSheet;
 $('expenseSheet').addEventListener('click', (e) => { if (e.target === $('expenseSheet')) closeSheet(); });
 $('addHabitBtn').onclick = () => habitModal(null);
