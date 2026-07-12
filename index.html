@@ -110,6 +110,7 @@
       <h2 class="section-title">By account</h2>
       <div id="accountTotals"></div>
       <h2 class="section-title">All expenses</h2>
+      <input type="text" id="expenseSearch" class="search-input" placeholder="Search note, category, account…">
       <div id="allExpenses" class="expense-list"></div>
     </section>
 
@@ -150,6 +151,8 @@
       <div class="card col-gap">
         <button class="btn-small" id="exportBtn"><i data-lucide="download"></i> Export JSON</button>
         <button class="btn-small" id="exportCsvBtn"><i data-lucide="download"></i> Export expenses CSV</button>
+        <button class="btn-small" id="importBtn"><i data-lucide="upload"></i> Import JSON</button>
+        <input type="file" id="importFile" accept="application/json" class="hidden">
         <p class="muted small" id="syncStatus"></p>
         <button class="btn-small danger" id="logoutBtn">Sign out</button>
       </div>

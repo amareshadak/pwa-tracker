@@ -129,6 +129,16 @@ let sb = null;          // supabase client
 let sessionUser = null; // supabase user
 let currentView = 'today';
 let expenseRange = 'week';
+let expenseSearch = '';
+function applySearchFilter(list) {
+  if (!expenseSearch) return list;
+  const q = expenseSearch.toLowerCase();
+  return list.filter(e => {
+    const cat = S.categories.find(c => c.id === e.category_id);
+    const acc = S.accounts.find(a => a.id === e.account_id);
+    return `${cat ? cat.name : ''} ${acc ? acc.name : ''} ${e.note || ''}`.toLowerCase().includes(q);
+  });
+}
 let charts = {};
 
 const LS_KEY = 'dailytracker_v1';
@@ -431,9 +441,11 @@ function renderExpenseList(container, expenses) {
       <div class="exp-info"><div class="exp-cat">${cat.name}</div>
       <div class="exp-note">${e.date} · ${acc.name}${e.note ? ' · ' + e.note : ''}</div></div>
       <div class="exp-amt">${fmtMoney(e.amount)}</div>`;
+    const edit = document.createElement('button'); edit.className = 'exp-edit'; edit.innerHTML = ic('pencil');
+    edit.onclick = () => expenseModal(e);
     const del = document.createElement('button'); del.className = 'exp-del'; del.innerHTML = ic('x');
     del.onclick = async () => { if (await confirmDlg('Delete this expense?')) { removeRow('expenses', e.id); render(); } };
-    row.appendChild(del);
+    row.append(edit, del);
     container.appendChild(row);
   });
   if (!sorted.length) container.innerHTML = '<p class="muted center small">Nothing here yet</p>';
@@ -653,7 +665,7 @@ function renderExpenses() {
     aWrap.appendChild(el);
   });
 
-  renderExpenseList($('allExpenses'), list);
+  renderExpenseList($('allExpenses'), applySearchFilter(list));
 }
 
 function drawChart(id, config) {
@@ -749,6 +761,30 @@ function recurringModal(r) {
       account_id: $('mr_account').value, category_id: $('mr_category').value
     }));
     closeModal(); postRecurring(); renderSettings();
+  };
+}
+
+function expenseModal(e) {
+  const accOpts = S.accounts.map(a => `<option value="${a.id}" ${a.id===e.account_id?'selected':''}>${a.name}</option>`).join('');
+  const catOpts = S.categories.map(c => `<option value="${c.id}" ${c.id===e.category_id?'selected':''}>${c.name}</option>`).join('');
+  openModal(`
+    <h3>Edit expense</h3>
+    <label>Amount (₹)</label><input id="me_amount" type="number" value="${e.amount}" min="0">
+    <label>Paid from</label><select id="me_account">${accOpts}</select>
+    <label>Category</label><select id="me_category">${catOpts}</select>
+    <label>Note</label><input id="me_note" value="${e.note || ''}">
+    <label>Date</label><input id="me_date" type="date" value="${e.date}">
+    <div class="modal-actions"><button class="btn-primary" id="me_save">Save</button>
+    <button class="btn-small" id="me_cancel">Cancel</button></div>`);
+  $('me_cancel').onclick = closeModal;
+  $('me_save').onclick = () => {
+    const amount = parseFloat($('me_amount').value);
+    if (!amount || amount <= 0) { toast('Enter an amount'); return; }
+    upsert('expenses', Object.assign({}, e, {
+      amount, account_id: $('me_account').value, category_id: $('me_category').value,
+      note: $('me_note').value.trim(), date: $('me_date').value || e.date
+    }));
+    closeModal(); toast('Saved'); render();
   };
 }
 
@@ -976,6 +1012,22 @@ function exportCSV() {
   download(`expenses-${todayStr()}.csv`, rows.map(r => r.join(',')).join('\n'), 'text/csv');
 }
 
+function importJSON(file) {
+  const reader = new FileReader();
+  reader.onload = async () => {
+    let parsed;
+    try { parsed = JSON.parse(reader.result); } catch { toast('Invalid JSON file'); return; }
+    const tables = ['habits', 'accounts', 'categories', 'expenses', 'recurring', 'habit_logs'];
+    const found = tables.filter(t => Array.isArray(parsed[t]) && parsed[t].length);
+    if (!found.length) { toast('No recognizable data in file'); return; }
+    const summary = found.map(t => `${t}: ${parsed[t].length}`).join(', ');
+    if (!(await confirmDlg(`Import ${summary}? Matching IDs update existing records, others get added.`, 'Import'))) return;
+    found.forEach(t => parsed[t].forEach(row => upsert(t, row)));
+    toast('Import complete'); render(); refreshIcons();
+  };
+  reader.readAsText(file);
+}
+
 /* ---------- auth + boot ---------- */
 async function boot() {
   loadLocal();
@@ -1043,6 +1095,15 @@ $('addRecurringBtn').onclick = () => recurringModal(null);
 $('enablePushBtn').onclick = enablePush;
 $('exportBtn').onclick = exportJSON;
 $('exportCsvBtn').onclick = exportCSV;
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = (e) => { if (e.target.files[0]) importJSON(e.target.files[0]); e.target.value = ''; };
+$('expenseSearch').oninput = (e) => {
+  expenseSearch = e.target.value;
+  const days = rangeDays();
+  const from = todayStr(daysAgo(days - 1));
+  const list = S.expenses.filter(x => x.date >= from);
+  renderExpenseList($('allExpenses'), applySearchFilter(list));
+};
 $('pinToggleBtn').onclick = async () => {
   if (S.settings.pin) {
     if (await confirmDlg('Remove PIN lock?', 'Remove')) { S.settings.pin = null; saveLocal(); renderSettings(); toast('PIN removed'); }

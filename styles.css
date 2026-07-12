@@ -168,6 +168,14 @@ svg.lucide { width: 20px; height: 20px; stroke-width: 2; vertical-align: -0.22em
 .exp-note { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .exp-amt { font-weight: 800; flex-shrink: 0; white-space: nowrap; }
 .exp-del { border: none; background: none; color: var(--muted); opacity: .5; font-size: 1rem; cursor: pointer; padding: 4px; }
+.exp-edit { border: none; background: none; color: var(--muted); opacity: .5; cursor: pointer; padding: 4px; }
+.exp-edit svg.lucide { width: 16px; height: 16px; }
+
+/* search */
+.search-input { width: 100%; border: 2px solid var(--line); background: var(--card); border-radius: 12px;
+  padding: 10px 14px; font-size: .88rem; outline: none; color: var(--ink); margin: 8px 0 10px;
+  font-family: inherit; -webkit-appearance: none; }
+.search-input:focus { border-color: var(--primary); }
 
 /* budgets */
 .budget-item { background: var(--card); border-radius: 14px; padding: 10px 14px; box-shadow: var(--shadow);
