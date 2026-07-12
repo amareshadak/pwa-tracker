@@ -78,7 +78,7 @@ svg.lucide { width: 20px; height: 20px; stroke-width: 2; vertical-align: -0.22em
   box-shadow: var(--shadow); margin-bottom: 10px; border: 1px solid var(--line); }
 
 /* summary cards */
-.summary-row { display: flex; gap: 12px; margin-top: 8px; }
+.summary-row { display: flex; gap: 12px; margin-top: 8px; margin-bottom: 8px; }
 .summary-card { flex: 1; border-radius: var(--radius); padding: 16px 14px; color: #F8FAED; box-shadow: var(--shadow); }
 .summary-num { font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; }
 .summary-label { font-size: .8rem; opacity: .85; margin-top: 2px; }
