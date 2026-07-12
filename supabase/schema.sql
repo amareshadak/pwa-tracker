@@ -70,7 +70,10 @@ create table if not exists push_subs (
   id uuid primary key,
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   subscription jsonb not null,
-  created_at timestamptz default now()
+  endpoint text not null,               -- subscription->>'endpoint', kept as a real column so
+                                         -- upsert(onConflict: 'user_id,endpoint') can dedupe re-subscribes
+  created_at timestamptz default now(),
+  unique (user_id, endpoint)
 );
 
 -- ---------- Row Level Security: each user sees only their own rows ----------

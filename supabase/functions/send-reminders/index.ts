@@ -86,7 +86,7 @@ Deno.serve(async () => {
     if (!scheduledToday(h) || doneToday(h)) continue;
     if (h.reminder_time && inWindow(h.reminder_time, minutes)) {
       await sendTo(h.user_id, {
-        title: `${h.icon} ${h.name}`,
+        title: h.name,
         body: h.type === "yesno" ? "Time for your habit — tap to log it!" : `Target: ${h.target} ${h.unit ?? ""} — you got this! 💪`,
         tag: `habit-${h.id}`,
       });
@@ -99,7 +99,7 @@ Deno.serve(async () => {
     const byUser = new Map<string, string[]>();
     for (const h of habits ?? []) {
       if (!scheduledToday(h) || doneToday(h)) continue;
-      byUser.set(h.user_id, [...(byUser.get(h.user_id) ?? []), `${h.icon} ${h.name}`]);
+      byUser.set(h.user_id, [...(byUser.get(h.user_id) ?? []), h.name]);
     }
     for (const [uid, names] of byUser) {
       await sendTo(uid, {
@@ -164,7 +164,7 @@ Deno.serve(async () => {
       const top = (cats ?? []).find((c) => c.id === topId);
       await sendTo(uid, {
         title: "📊 Your week in review",
-        body: `Habits: ${pct}% done. Spent ₹${total.toLocaleString("en-IN")}${top ? `, top: ${top.icon} ${top.name}` : ""}. Keep going! 💪`,
+        body: `Habits: ${pct}% done. Spent ₹${total.toLocaleString("en-IN")}${top ? `, top: ${top.name}` : ""}. Keep going! 💪`,
         tag: "weekly-digest",
       });
       sent++;

@@ -912,8 +912,8 @@ async function enablePush() {
       userVisibleOnly: true, applicationServerKey: urlB64ToUint8(cfg.VAPID_PUBLIC_KEY)
     });
     const { error } = await sb.from('push_subs').upsert({
-      id: uuid(), user_id: sessionUser.id, subscription: sub.toJSON()
-    });
+      id: uuid(), user_id: sessionUser.id, subscription: sub.toJSON(), endpoint: sub.endpoint
+    }, { onConflict: 'user_id,endpoint' });
     if (error) throw error;
     toast('Notifications enabled!'); renderSettings();
   } catch (e) { console.error(e); toast('Push setup failed: ' + (e.message || e)); }
