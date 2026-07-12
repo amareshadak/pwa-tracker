@@ -45,11 +45,11 @@
 <div id="app" class="hidden">
   <header class="app-header">
     <div>
-      <h1 id="greeting">Hello! 👋</h1>
+      <h1 id="greeting">Hello</h1>
       <p class="muted" id="todayDate"></p>
     </div>
     <div class="header-badges">
-      <span class="badge" id="streakBadge">🔥 0</span>
+      <span class="badge" id="streakBadge"><i data-lucide="flame"></i> 0</span>
     </div>
   </header>
 
@@ -69,19 +69,6 @@
 
       <h2 class="section-title">Today's habits</h2>
       <div id="todayHabits" class="habit-list"></div>
-
-      <h2 class="section-title">Quick expense</h2>
-      <div class="quick-expense card">
-        <div class="amount-row">
-          <span class="rupee">₹</span>
-          <input type="number" id="qeAmount" placeholder="0" inputmode="decimal" min="0">
-        </div>
-        <div id="qeAccounts" class="chip-row"></div>
-        <div id="qeCategories" class="cat-grid"></div>
-        <input type="text" id="qeNote" placeholder="Note (optional)">
-        <input type="date" id="qeDate" title="Date">
-        <button class="btn-primary" id="qeSave">Add Expense</button>
-      </div>
 
       <h2 class="section-title">Today's expenses</h2>
       <div id="todayExpenses" class="expense-list"></div>
@@ -160,8 +147,8 @@
 
       <h2 class="section-title">Data</h2>
       <div class="card col-gap">
-        <button class="btn-small" id="exportBtn">⬇️ Export JSON</button>
-        <button class="btn-small" id="exportCsvBtn">⬇️ Export expenses CSV</button>
+        <button class="btn-small" id="exportBtn"><i data-lucide="download"></i> Export JSON</button>
+        <button class="btn-small" id="exportCsvBtn"><i data-lucide="download"></i> Export expenses CSV</button>
         <p class="muted small" id="syncStatus"></p>
         <button class="btn-small danger" id="logoutBtn">Sign out</button>
       </div>
@@ -169,12 +156,33 @@
     </section>
   </main>
 
+  <button id="fab" aria-label="Add expense"><i data-lucide="plus"></i></button>
+
   <nav class="tabbar">
     <button data-view="today" class="on"><span><i data-lucide="house"></i></span>Today</button>
     <button data-view="habits"><span><i data-lucide="list-checks"></i></span>Habits</button>
     <button data-view="expenses"><span><i data-lucide="wallet"></i></span>Money</button>
     <button data-view="settings"><span><i data-lucide="settings"></i></span>More</button>
   </nav>
+</div>
+
+<!-- EXPENSE BOTTOM SHEET -->
+<div id="expenseSheet" class="overlay sheet-overlay hidden">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title">Add expense</h3>
+    <div class="quick-expense">
+      <div class="amount-row">
+        <span class="rupee">₹</span>
+        <input type="number" id="qeAmount" placeholder="0" inputmode="decimal" min="0">
+      </div>
+      <div id="qeAccounts" class="chip-row"></div>
+      <div id="qeCategories" class="cat-grid"></div>
+      <input type="text" id="qeNote" placeholder="Note (optional)">
+      <input type="date" id="qeDate" title="Date">
+      <button class="btn-primary" id="qeSave">Add Expense</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL -->

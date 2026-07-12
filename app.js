@@ -186,7 +186,7 @@ function updateSyncStatus() {
   if (!hasSupabase) { el.textContent = 'Local-only mode. Add Supabase keys in config.js to enable sync + push.'; return; }
   const pending = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]').length;
   el.textContent = sessionUser
-    ? (pending ? `☁️ Synced (${pending} pending)` : '☁️ Synced with Supabase')
+    ? (pending ? `Synced (${pending} pending)` : 'Synced with Supabase')
     : 'Not signed in';
 }
 
@@ -275,7 +275,7 @@ function switchView(v) {
 function render() {
   $('todayDate').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
   const hour = new Date().getHours();
-  $('greeting').textContent = hour < 12 ? 'Good morning! ☀️' : hour < 17 ? 'Good afternoon! 🌤️' : 'Good evening! 🌙';
+  $('greeting').textContent = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   if (currentView === 'today') renderToday();
   if (currentView === 'habits') renderHabits();
   if (currentView === 'expenses') renderExpenses();
@@ -287,7 +287,7 @@ function render() {
 function renderStreakBadge() {
   const active = S.habits.filter(h => !h.archived);
   const maxCur = active.length ? Math.max(...active.map(h => streaks(h).cur)) : 0;
-  $('streakBadge').textContent = `🔥 ${maxCur}`;
+  $('streakBadge').innerHTML = `${ic('flame')} ${maxCur}`;
 }
 
 /* ----- TODAY ----- */
@@ -316,7 +316,7 @@ function renderToday() {
     if (h.type === 'yesno') {
       const btn = document.createElement('button');
       btn.className = 'habit-check' + (done ? ' on' : '');
-      btn.textContent = done ? '✓' : '';
+      btn.innerHTML = done ? ic('check') : '';
       btn.onclick = () => {
         const newVal = done ? 0 : 1;
         setLog(h, ds, newVal);
@@ -341,10 +341,8 @@ function renderToday() {
     }
     wrap.appendChild(row);
   });
-  if (!todays.length) wrap.innerHTML = '<p class="muted center">No habits scheduled today 🎉</p>';
+  if (!todays.length) wrap.innerHTML = '<p class="muted center">No habits scheduled today</p>';
 
-  renderQuickExpense();
-  if (!$('qeDate').value) $('qeDate').value = ds;
   renderExpenseList($('todayExpenses'), todayExp);
 }
 
@@ -357,10 +355,10 @@ function postRecurring() {
     const dd = String(Math.min(r.day, 28)).padStart(2, '0');
     upsert('expenses', {
       id: uuid(), amount: r.amount, account_id: r.account_id, category_id: r.category_id,
-      note: (r.note || 'Recurring') + ' 🔁', date: `${m}-${dd}`
+      note: (r.note || 'Recurring') + ' (auto)', date: `${m}-${dd}`
     });
     upsert('recurring', Object.assign({}, r, { last_posted: m }));
-    toast(`🔁 ${r.note || 'Recurring'}: ${fmtMoney(r.amount)} added`);
+    toast(`${r.note || 'Recurring'}: ${fmtMoney(r.amount)} added`);
   });
 }
 
@@ -368,9 +366,9 @@ function celebrate(h) {
   const { cur } = streaks(h);
   const streak = cur + 1;
   if (streak >= 3 && (streak % 5 === 0 || streak === 3 || streak === 7)) {
-    confetti(); toast(`${streak} days strong! Keep the streak 🔥`);
+    confetti(); toast(`${streak} days strong — keep the streak!`);
   } else {
-    toast(`Done! Nice one 💪`);
+    toast('Done. Nice one!');
   }
 }
 
@@ -397,7 +395,7 @@ function renderQuickExpense() {
 
 function saveQuickExpense() {
   const amt = parseFloat($('qeAmount').value);
-  if (!amt || amt <= 0) { toast('Enter an amount 🙂'); return; }
+  if (!amt || amt <= 0) { toast('Enter an amount'); return; }
   if (!qeSelCategory) { toast('Pick a category'); return; }
   const exp = {
     id: uuid(), amount: amt, account_id: qeSelAccount, category_id: qeSelCategory,
@@ -405,7 +403,8 @@ function saveQuickExpense() {
   };
   upsert('expenses', exp);
   $('qeAmount').value = ''; $('qeNote').value = ''; $('qeDate').value = todayStr(); qeSelCategory = null;
-  toast(`💸 ${fmtMoney(amt)} added`);
+  closeSheet();
+  toast(`${fmtMoney(amt)} added`);
   checkBudget(exp.category_id);
   render();
 }
@@ -417,8 +416,8 @@ function checkBudget(catId) {
   const spent = S.expenses.filter(e => e.category_id === catId && e.date.startsWith(m))
     .reduce((s, e) => s + Number(e.amount), 0);
   const pct = spent / cat.monthly_budget * 100;
-  if (pct >= 100) toast(`⚠️ ${cat.name} budget exceeded! (${fmtMoney(spent)})`);
-  else if (pct >= 80) toast(`⚠️ ${cat.name}: ${Math.round(pct)}% of budget used`);
+  if (pct >= 100) toast(`${cat.name} budget exceeded (${fmtMoney(spent)})`);
+  else if (pct >= 80) toast(`${cat.name}: ${Math.round(pct)}% of budget used`);
 }
 
 function renderExpenseList(container, expenses) {
@@ -432,8 +431,8 @@ function renderExpenseList(container, expenses) {
       <div class="exp-info"><div class="exp-cat">${cat.name}</div>
       <div class="exp-note">${e.date} · ${acc.name}${e.note ? ' · ' + e.note : ''}</div></div>
       <div class="exp-amt">${fmtMoney(e.amount)}</div>`;
-    const del = document.createElement('button'); del.className = 'exp-del'; del.textContent = '✕';
-    del.onclick = () => { if (confirm('Delete this expense?')) { removeRow('expenses', e.id); render(); } };
+    const del = document.createElement('button'); del.className = 'exp-del'; del.innerHTML = ic('x');
+    del.onclick = async () => { if (await confirmDlg('Delete this expense?')) { removeRow('expenses', e.id); render(); } };
     row.appendChild(del);
     container.appendChild(row);
   });
@@ -474,7 +473,7 @@ function renderHabits() {
         <div class="habit-emoji">${ic(h.icon)}</div>
         <div class="habit-info"><div class="habit-name">${h.name}</div>
           <div class="habit-sub">⏰ ${h.reminder_time || 'no reminder'} · ${(h.schedule||[]).length ? (h.schedule.map(d=>DOW[d]).join(' ')) : 'daily'}</div></div>
-        <div class="pill">🔥 ${st.cur}</div></div>
+        <div class="pill pill-flame">${ic('flame')} ${st.cur}</div></div>
       <div class="streak-pills">
         <span class="pill">Best: ${st.best}</span>
         <span class="pill">7d: ${completionPct(h,7)}%</span>
@@ -515,22 +514,22 @@ function showHabitDetail(h) {
         <div class="habit-sub">${h.type === 'yesno' ? 'Yes / No' : `Target: ${h.target} ${h.unit}`} · ⏰ ${h.reminder_time}</div></div>
       </div>
       <div class="streak-pills">
-        <span class="pill">🔥 Current: ${st.cur}</span><span class="pill">🏆 Best: ${st.best}</span>
+        <span class="pill pill-flame">${ic('flame')} Current: ${st.cur}</span><span class="pill">${ic('trophy')} Best: ${st.best}</span>
         <span class="pill">30d: ${completionPct(h,30)}%</span>
       </div>
       <div class="heatmap">${cells}</div>
       <div class="modal-actions">
-        <button class="btn-primary" id="editHabitBtn">✏️ Edit</button>
+        <button class="btn-primary" id="editHabitBtn">${ic('pencil')} Edit</button>
         <button class="btn-small danger" id="deleteHabitBtn">Delete</button>
       </div>
     </div>`;
   refreshIcons();
   $('backToHabits').onclick = () => renderHabits();
   $('editHabitBtn').onclick = () => habitModal(h);
-  $('deleteHabitBtn').onclick = () => {
-    if (confirm(`Delete "${h.name}" and its history?`)) {
+  $('deleteHabitBtn').onclick = async () => {
+    if (await confirmDlg(`Delete "${h.name}" and its history?`)) {
       S.habit_logs.filter(l => l.habit_id === h.id).forEach(l => removeRow('habit_logs', l.id));
-      removeRow('habits', h.id); renderHabits();
+      removeRow('habits', h.id); renderHabits(); refreshIcons();
     }
   };
 }
@@ -578,7 +577,7 @@ function habitModal(h) {
   $('mh_cancel').onclick = closeModal;
   $('mh_save').onclick = () => {
     const name = $('mh_name').value.trim();
-    if (!name) { toast('Give it a name 🙂'); return; }
+    if (!name) { toast('Give it a name'); return; }
     const type = $('mh_type').value;
     upsert('habits', Object.assign({}, h, {
       name, icon: selIcon, type,
@@ -587,7 +586,7 @@ function habitModal(h) {
       reminder_time: $('mh_time').value || '20:00',
       schedule: selDays.sort()
     }));
-    closeModal(); toast(isNew ? '✅ Habit added!' : '✅ Saved'); renderHabits();
+    closeModal(); toast(isNew ? 'Habit added!' : 'Saved'); renderHabits(); refreshIcons();
   };
 }
 
@@ -670,7 +669,7 @@ function renderSettings() {
   const ps = $('pushStatus');
   if (!hasSupabase) ps.textContent = 'Needs Supabase setup (see README) — notifications require a server.';
   else if (typeof Notification === 'undefined') ps.textContent = 'On iPhone: add this app to your Home Screen first, then enable push from inside it.';
-  else if (Notification.permission === 'granted') ps.textContent = '✅ Notifications enabled on this device';
+  else if (Notification.permission === 'granted') ps.textContent = 'Notifications enabled on this device';
   else ps.textContent = 'Tap to allow reminders on this device';
 
   // accounts
@@ -678,10 +677,10 @@ function renderSettings() {
   S.accounts.forEach(a => {
     const el = document.createElement('div'); el.className = 'setting-row';
     el.innerHTML = `<span class="row-ic">${ic(a.icon)}</span><div class="grow">${a.name}<div class="sub">${a.type}</div></div>`;
-    const edit = document.createElement('button'); edit.className = 'btn-small'; edit.textContent = '✏️';
+    const edit = document.createElement('button'); edit.className = 'btn-small btn-icon'; edit.innerHTML = ic('pencil');
     edit.onclick = () => accountModal(a);
-    const del = document.createElement('button'); del.className = 'btn-small danger'; del.textContent = '✕';
-    del.onclick = () => { if (confirm(`Delete account "${a.name}"?`)) { removeRow('accounts', a.id); renderSettings(); } };
+    const del = document.createElement('button'); del.className = 'btn-small danger btn-icon'; del.innerHTML = ic('trash-2');
+    del.onclick = async () => { if (await confirmDlg(`Delete account "${a.name}"?`)) { removeRow('accounts', a.id); renderSettings(); refreshIcons(); } };
     el.append(edit, del); aWrap.appendChild(el);
   });
 
@@ -691,10 +690,10 @@ function renderSettings() {
     const el = document.createElement('div'); el.className = 'setting-row';
     el.innerHTML = `<span class="row-ic">${ic(c.icon)}</span><div class="grow">${c.name}
       <div class="sub">${c.monthly_budget ? 'Budget: ' + fmtMoney(c.monthly_budget) + '/mo' : 'no budget'}</div></div>`;
-    const edit = document.createElement('button'); edit.className = 'btn-small'; edit.textContent = '✏️';
+    const edit = document.createElement('button'); edit.className = 'btn-small btn-icon'; edit.innerHTML = ic('pencil');
     edit.onclick = () => categoryModal(c);
-    const del = document.createElement('button'); del.className = 'btn-small danger'; del.textContent = '✕';
-    del.onclick = () => { if (confirm(`Delete category "${c.name}"?`)) { removeRow('categories', c.id); renderSettings(); } };
+    const del = document.createElement('button'); del.className = 'btn-small danger btn-icon'; del.innerHTML = ic('trash-2');
+    del.onclick = async () => { if (await confirmDlg(`Delete category "${c.name}"?`)) { removeRow('categories', c.id); renderSettings(); refreshIcons(); } };
     el.append(edit, del); cWrap.appendChild(el);
   });
 
@@ -705,10 +704,10 @@ function renderSettings() {
     const el = document.createElement('div'); el.className = 'setting-row';
     el.innerHTML = `<span class="row-ic">${ic(cat.icon)}</span><div class="grow">${r.note || 'Recurring'}
       <div class="sub">${fmtMoney(r.amount)} on day ${r.day} of every month</div></div>`;
-    const edit = document.createElement('button'); edit.className = 'btn-small'; edit.textContent = '✏️';
+    const edit = document.createElement('button'); edit.className = 'btn-small btn-icon'; edit.innerHTML = ic('pencil');
     edit.onclick = () => recurringModal(r);
-    const del = document.createElement('button'); del.className = 'btn-small danger'; del.textContent = '✕';
-    del.onclick = () => { if (confirm(`Stop "${r.note}"?`)) { removeRow('recurring', r.id); renderSettings(); } };
+    const del = document.createElement('button'); del.className = 'btn-small danger btn-icon'; del.innerHTML = ic('trash-2');
+    del.onclick = async () => { if (await confirmDlg(`Stop "${r.note}"?`, 'Stop')) { removeRow('recurring', r.id); renderSettings(); refreshIcons(); } };
     el.append(edit, del); rWrap.appendChild(el);
   });
   if (!S.recurring.length) rWrap.innerHTML = '<p class="muted small">None yet — e.g. rent on day 1, Netflix on day 5</p>';
@@ -814,6 +813,31 @@ function categoryModal(c) {
 function openModal(html) { $('modalBox').innerHTML = html; $('modal').classList.remove('hidden'); setTimeout(refreshIcons, 0); }
 function closeModal() { $('modal').classList.add('hidden'); }
 
+/* styled in-app confirm (replaces browser confirm()) */
+function confirmDlg(msg, actionLabel) {
+  return new Promise((resolve) => {
+    openModal(`
+      <div class="confirm-ic">${ic('trash-2')}</div>
+      <p class="confirm-msg">${msg}</p>
+      <div class="modal-actions">
+        <button class="btn-primary btn-danger" id="cf_yes">${actionLabel || 'Delete'}</button>
+        <button class="btn-small" id="cf_no">Cancel</button>
+      </div>`);
+    $('cf_yes').onclick = () => { closeModal(); resolve(true); };
+    $('cf_no').onclick = () => { closeModal(); resolve(false); };
+  });
+}
+
+/* expense bottom sheet */
+function openSheet() {
+  $('qeDate').value = todayStr();
+  renderQuickExpense();
+  $('expenseSheet').classList.remove('hidden');
+  refreshIcons();
+  setTimeout(() => $('qeAmount').focus(), 100);
+}
+function closeSheet() { $('expenseSheet').classList.add('hidden'); }
+
 /* ---------- PIN lock ---------- */
 function pinFlow(mode, onOk) { // mode: 'enter'|'set'
   const scr = $('pinScreen'); scr.classList.remove('hidden');
@@ -824,7 +848,8 @@ function pinFlow(mode, onOk) { // mode: 'enter'|'set'
   const pad = $('pinPad'); pad.innerHTML = '';
   [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k => {
     const b = document.createElement('button');
-    b.textContent = k; if (k === '') b.style.visibility = 'hidden';
+    if (k === '⌫') b.innerHTML = ic('delete'); else b.textContent = k;
+    if (k === '') b.style.visibility = 'hidden';
     b.onclick = () => {
       if (k === '⌫') entry = entry.slice(0, -1);
       else if (entry.length < 4) entry += String(k);
@@ -843,6 +868,7 @@ function pinFlow(mode, onOk) { // mode: 'enter'|'set'
     pad.appendChild(b);
   });
   refresh();
+  refreshIcons();
 }
 
 /* ---------- push notifications ---------- */
@@ -872,7 +898,7 @@ async function enablePush() {
       id: uuid(), user_id: sessionUser.id, subscription: sub.toJSON()
     });
     if (error) throw error;
-    toast('🔔 Notifications enabled!'); renderSettings();
+    toast('Notifications enabled!'); renderSettings();
   } catch (e) { console.error(e); toast('Push setup failed: ' + (e.message || e)); }
 }
 
@@ -950,6 +976,8 @@ function startApp() {
 /* ---------- events ---------- */
 document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => switchView(b.dataset.view));
 $('qeSave').onclick = saveQuickExpense;
+$('fab').onclick = openSheet;
+$('expenseSheet').addEventListener('click', (e) => { if (e.target === $('expenseSheet')) closeSheet(); });
 $('addHabitBtn').onclick = () => habitModal(null);
 $('addAccountBtn').onclick = () => accountModal(null);
 $('addCategoryBtn').onclick = () => categoryModal(null);
@@ -957,11 +985,11 @@ $('addRecurringBtn').onclick = () => recurringModal(null);
 $('enablePushBtn').onclick = enablePush;
 $('exportBtn').onclick = exportJSON;
 $('exportCsvBtn').onclick = exportCSV;
-$('pinToggleBtn').onclick = () => {
+$('pinToggleBtn').onclick = async () => {
   if (S.settings.pin) {
-    if (confirm('Remove PIN lock?')) { S.settings.pin = null; saveLocal(); renderSettings(); toast('PIN removed'); }
+    if (await confirmDlg('Remove PIN lock?', 'Remove')) { S.settings.pin = null; saveLocal(); renderSettings(); toast('PIN removed'); }
   } else {
-    pinFlow('set', (pin) => { S.settings.pin = pin; saveLocal(); renderSettings(); toast('🔒 PIN set'); });
+    pinFlow('set', (pin) => { S.settings.pin = pin; saveLocal(); renderSettings(); toast('PIN set'); });
   }
 };
 $('logoutBtn').onclick = async () => {
