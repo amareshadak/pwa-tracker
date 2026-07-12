@@ -124,7 +124,7 @@ const CAT_EMOJIS = ['house','shopping-cart','utensils','car','shopping-bag','spa
 const ACC_EMOJIS = ['landmark','banknote','smartphone','credit-card','wallet'];
 
 /* ---------- state ---------- */
-let S = { habits: [], habit_logs: [], accounts: [], categories: [], expenses: [], recurring: [], settings: {} };
+let S = { habits: [], habit_logs: [], accounts: [], categories: [], expenses: [], recurring: [], captures: [], settings: {} };
 let sb = null;          // supabase client
 let sessionUser = null; // supabase user
 let currentView = 'today';
@@ -180,13 +180,13 @@ async function flushQueue() {
 async function pullAll() {
   if (!sb || !sessionUser) return;
   try {
-    const tables = ['habits', 'habit_logs', 'accounts', 'categories', 'expenses', 'recurring'];
+    const tables = ['habits', 'habit_logs', 'accounts', 'categories', 'expenses', 'recurring', 'captures'];
     const results = await Promise.all(tables.map(t => sb.from(t).select('*')));
     if (results.some(r => r.error)) throw results.find(r => r.error).error;
-    const [h, hl, a, c, e, rec] = results.map(r => r.data);
+    const [h, hl, a, c, e, rec, cap] = results.map(r => r.data);
     // only replace if server actually has data OR local empty
     if (h.length || a.length || c.length || !S.habits.length) {
-      S.habits = h; S.habit_logs = hl; S.accounts = a; S.categories = c; S.expenses = e; S.recurring = rec;
+      S.habits = h; S.habit_logs = hl; S.accounts = a; S.categories = c; S.expenses = e; S.recurring = rec; S.captures = cap;
     }
     saveLocal();
   } catch (e) { console.warn('pull failed', e.message || e); }
@@ -311,6 +311,8 @@ function renderToday() {
   const todayExp = S.expenses.filter(e => e.date === ds);
   $('sumSpend').textContent = fmtMoney(todayExp.reduce((s, e) => s + Number(e.amount), 0));
 
+  renderCaptures();
+
   // habit checklist
   const wrap = $('todayHabits'); wrap.innerHTML = '';
   todays.forEach(h => {
@@ -354,6 +356,46 @@ function renderToday() {
   if (!todays.length) wrap.innerHTML = '<p class="muted center">No habits scheduled today</p>';
 
   renderExpenseList($('todayExpenses'), todayExp);
+}
+
+/* ----- QUICK CAPTURE ----- */
+function renderCaptures() {
+  const wrap = $('captureList'); if (!wrap) return;
+  wrap.innerHTML = '';
+  const items = (S.captures || []).filter(c => c.status === 'inbox').sort((a, b) => b.created_at.localeCompare(a.created_at));
+  items.forEach(c => {
+    const el = document.createElement('div'); el.className = 'capture-row';
+    el.innerHTML = `<div class="capture-body"><div class="capture-text">${c.raw_text}</div>
+      <div class="capture-ai">${c.ai_summary ? ic('sparkles') + c.ai_summary : ic('loader-circle') + 'thinking…'}</div></div>`;
+    const done = document.createElement('button'); done.className = 'capture-done'; done.innerHTML = ic('check');
+    done.onclick = () => { upsert('captures', Object.assign({}, c, { status: 'done' })); renderCaptures(); };
+    const del = document.createElement('button'); del.className = 'capture-del'; del.innerHTML = ic('x');
+    del.onclick = () => { removeRow('captures', c.id); renderCaptures(); };
+    el.append(done, del);
+    wrap.appendChild(el);
+  });
+  refreshIcons();
+}
+
+function addCapture() {
+  const input = $('captureText');
+  const text = input.value.trim();
+  if (!text) return;
+  const row = { id: uuid(), raw_text: text, ai_type: null, ai_summary: null, status: 'inbox', created_at: new Date().toISOString() };
+  upsert('captures', row);
+  input.value = '';
+  renderCaptures();
+  processCaptureAI(row);
+}
+
+async function processCaptureAI(row) {
+  if (!hasSupabase || !sb || !sessionUser) return;
+  try {
+    const { data, error } = await sb.functions.invoke('parse-capture', { body: { text: row.raw_text } });
+    if (error || !data || data.error) return;
+    upsert('captures', Object.assign({}, row, { ai_type: data.type || null, ai_summary: data.summary || null }));
+    renderCaptures();
+  } catch (_) { /* best-effort — raw text is already saved either way */ }
 }
 
 /* ----- recurring expenses: auto-post monthly ----- */
@@ -1017,7 +1059,7 @@ function importJSON(file) {
   reader.onload = async () => {
     let parsed;
     try { parsed = JSON.parse(reader.result); } catch { toast('Invalid JSON file'); return; }
-    const tables = ['habits', 'accounts', 'categories', 'expenses', 'recurring', 'habit_logs'];
+    const tables = ['habits', 'accounts', 'categories', 'expenses', 'recurring', 'habit_logs', 'captures'];
     const found = tables.filter(t => Array.isArray(parsed[t]) && parsed[t].length);
     if (!found.length) { toast('No recognizable data in file'); return; }
     const summary = found.map(t => `${t}: ${parsed[t].length}`).join(', ');
@@ -1085,6 +1127,8 @@ function startApp() {
 /* ---------- events ---------- */
 document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => switchView(b.dataset.view));
 $('qeSave').onclick = saveQuickExpense;
+$('captureSaveBtn').onclick = addCapture;
+$('captureText').addEventListener('keydown', (e) => { if (e.key === 'Enter') addCapture(); });
 $('qeAiBtn').onclick = aiFillExpense;
 $('fab').onclick = openSheet;
 $('expenseSheet').addEventListener('click', (e) => { if (e.target === $('expenseSheet')) closeSheet(); });

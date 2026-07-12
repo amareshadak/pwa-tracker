@@ -66,6 +66,16 @@ create table if not exists recurring (
   last_posted text default ''   -- 'YYYY-MM' of last auto-post
 );
 
+create table if not exists captures (
+  id uuid primary key,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  raw_text text not null,
+  ai_type text,          -- 'habit' | 'expense' | 'reminder' | 'note', set by parse-capture (best-effort)
+  ai_summary text,
+  status text not null default 'inbox' check (status in ('inbox','done','dismissed')),
+  created_at timestamptz default now()
+);
+
 create table if not exists push_subs (
   id uuid primary key,
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -84,11 +94,12 @@ alter table categories enable row level security;
 alter table expenses enable row level security;
 alter table recurring enable row level security;
 alter table push_subs enable row level security;
+alter table captures enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['habits','habit_logs','accounts','categories','expenses','recurring','push_subs'] loop
+  foreach t in array array['habits','habit_logs','accounts','categories','expenses','recurring','push_subs','captures'] loop
     execute format('drop policy if exists "own rows" on %I', t);
     execute format(
       'create policy "own rows" on %I for all using (user_id = auth.uid()) with check (user_id = auth.uid())', t);
@@ -98,3 +109,4 @@ end $$;
 -- Helpful indexes
 create index if not exists idx_habit_logs_user_date on habit_logs (user_id, date);
 create index if not exists idx_expenses_user_date on expenses (user_id, date);
+create index if not exists idx_captures_user_status on captures (user_id, status);
