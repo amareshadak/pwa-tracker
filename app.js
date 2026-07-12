@@ -851,19 +851,23 @@ function pinFlow(mode, onOk) { // mode: 'enter'|'set'
     if (k === '⌫') b.innerHTML = ic('delete'); else b.textContent = k;
     if (k === '') b.style.visibility = 'hidden';
     b.onclick = () => {
+      if (entry.length === 4) return; // ignore taps while the 4th-digit check is pending
       if (k === '⌫') entry = entry.slice(0, -1);
-      else if (entry.length < 4) entry += String(k);
+      else entry += String(k);
       refresh();
-      if (entry.length === 4) setTimeout(() => {
-        if (mode === 'set') {
-          if (!firstPin) { firstPin = entry; entry = ''; $('pinTitle').textContent = 'Repeat PIN'; refresh(); }
-          else if (firstPin === entry) { scr.classList.add('hidden'); onOk(entry); }
-          else { toast('PINs don\'t match'); firstPin = null; entry = ''; $('pinTitle').textContent = 'Choose a PIN'; refresh(); }
-        } else {
-          if (entry === S.settings.pin) { scr.classList.add('hidden'); onOk(); }
-          else { toast('Wrong PIN'); entry = ''; refresh(); }
-        }
-      }, 120);
+      if (entry.length === 4) {
+        const val = entry;
+        setTimeout(() => {
+          if (mode === 'set') {
+            if (!firstPin) { firstPin = val; entry = ''; $('pinTitle').textContent = 'Repeat PIN'; refresh(); }
+            else if (firstPin === val) { scr.classList.add('hidden'); onOk(val); }
+            else { toast('PINs don\'t match'); firstPin = null; entry = ''; $('pinTitle').textContent = 'Choose a PIN'; refresh(); }
+          } else {
+            if (val === S.settings.pin) { scr.classList.add('hidden'); onOk(); }
+            else { toast('Wrong PIN'); entry = ''; refresh(); }
+          }
+        }, 120);
+      }
     };
     pad.appendChild(b);
   });
