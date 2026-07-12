@@ -3,10 +3,17 @@
 // Turns a free-text note ("250 lunch swiggy hdfc") into a
 // structured expense using Gemini. Called from the quick-add
 // sheet as an optional prefill — never auto-saves anything.
-// JWT-verified by the platform (deploy WITHOUT --no-verify-jwt),
-// so only signed-in app users can call it.
+//
+// verify_jwt=true alone is NOT enough here: this project uses the
+// legacy JWT-format anon key, which is itself a validly-signed JWT,
+// so the platform gate lets it through same as a real user session.
+// We additionally call auth.getUser() with the caller's token to
+// confirm it's a genuine logged-in user, not just the public anon key
+// (which is committed in config.js and visible to anyone).
+//
 // Secret required: supabase secrets set GEMINI_API_KEY=...
 // =========================================================
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
@@ -20,6 +27,17 @@ Deno.serve(async (req) => {
   }
   if (!GEMINI_KEY) {
     return new Response(JSON.stringify({ error: "GEMINI_API_KEY not configured" }), { status: 500 });
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const supabaseAuth = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: userData, error: userErr } = await supabaseAuth.auth.getUser();
+  if (userErr || !userData?.user) {
+    return new Response(JSON.stringify({ error: "Sign in required" }), { status: 401 });
   }
 
   let body: { text?: string; categories?: Ref[]; accounts?: Ref[] };
