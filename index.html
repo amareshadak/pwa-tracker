@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Daily Tracker</title>
-<meta name="theme-color" content="#6366f1" id="themeColorMeta">
+<meta name="theme-color" content="#50A65C" id="themeColorMeta">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,14 +14,14 @@
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.1.0/dist/twemoji.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.462.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
 
 <!-- PIN LOCK -->
 <div id="pinScreen" class="overlay hidden">
   <div class="pin-box">
-    <div class="pin-emoji">🔒</div>
+    <div class="pin-emoji"><i data-lucide="lock-keyhole"></i></div>
     <h2 id="pinTitle">Enter PIN</h2>
     <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
     <div class="pin-pad" id="pinPad"></div>
@@ -31,7 +31,7 @@
 <!-- LOGIN -->
 <div id="loginScreen" class="overlay hidden">
   <div class="login-box">
-    <div class="login-logo">✅</div>
+    <div class="login-logo"><i data-lucide="circle-check-big"></i></div>
     <h1>Daily Tracker</h1>
     <p class="muted">Sign in with the account Amaresh created for you</p>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
@@ -80,7 +80,7 @@
         <div id="qeCategories" class="cat-grid"></div>
         <input type="text" id="qeNote" placeholder="Note (optional)">
         <input type="date" id="qeDate" title="Date">
-        <button class="btn-primary" id="qeSave">Add Expense 💸</button>
+        <button class="btn-primary" id="qeSave">Add Expense</button>
       </div>
 
       <h2 class="section-title">Today's expenses</h2>
@@ -129,14 +129,14 @@
     <section id="view-settings" class="view hidden">
       <h2 class="section-title">Appearance</h2>
       <div class="seg" id="themeSeg">
-        <button data-t="auto">🌗 Auto</button>
-        <button data-t="light">☀️ Light</button>
-        <button data-t="dark">🌙 Dark</button>
+        <button data-t="auto">Auto</button>
+        <button data-t="light">Light</button>
+        <button data-t="dark">Dark</button>
       </div>
 
       <h2 class="section-title">Notifications</h2>
       <div class="card">
-        <button class="btn-primary" id="enablePushBtn">🔔 Enable Push Notifications</button>
+        <button class="btn-primary" id="enablePushBtn">Enable Push Notifications</button>
         <p class="muted small" id="pushStatus"></p>
       </div>
 
@@ -170,10 +170,10 @@
   </main>
 
   <nav class="tabbar">
-    <button data-view="today" class="on"><span>🏠</span>Today</button>
-    <button data-view="habits"><span>✅</span>Habits</button>
-    <button data-view="expenses"><span>💸</span>Money</button>
-    <button data-view="settings"><span>⚙️</span>More</button>
+    <button data-view="today" class="on"><span><i data-lucide="house"></i></span>Today</button>
+    <button data-view="habits"><span><i data-lucide="list-checks"></i></span>Habits</button>
+    <button data-view="expenses"><span><i data-lucide="wallet"></i></span>Money</button>
+    <button data-view="settings"><span><i data-lucide="settings"></i></span>More</button>
   </nav>
 </div>
 

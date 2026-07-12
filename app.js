@@ -29,18 +29,31 @@ function applyTheme() {
   const dark = isDark();
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   const meta = document.getElementById('themeColorMeta');
-  if (meta) meta.content = dark ? '#14121f' : '#6366f1';
+  if (meta) meta.content = dark ? '#232323' : '#50A65C';
   if (typeof Chart !== 'undefined') {
-    Chart.defaults.color = dark ? '#a8a3c2' : '#6b6786';
-    Chart.defaults.borderColor = dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
+    Chart.defaults.color = dark ? '#9AA294' : '#6B7A66';
+    Chart.defaults.borderColor = dark ? 'rgba(248,250,237,.08)' : 'rgba(35,35,35,.07)';
   }
 }
 
-/* ---------- twemoji: crisp colored icons on every device ---------- */
-function twemojify(root) {
-  if (typeof twemoji !== 'undefined') {
-    try { twemoji.parse(root || document.body, { folder: 'svg', ext: '.svg' }); } catch (_) {}
-  }
+/* ---------- Lucide icon system (professional SVG icons) ---------- */
+const EMOJI_TO_ICON = { // legacy data (emoji) → lucide icon names
+  '🌅':'sunrise','🏃':'dumbbell','💧':'glass-water','📝':'notebook-pen','🍔':'pizza','📖':'book-open',
+  '🧘':'flower-2','😴':'bed-double','✅':'circle-check-big','🏠':'house','🛒':'shopping-cart','🍽️':'utensils',
+  '🚗':'car','🛍️':'shopping-bag','🧴':'sparkles','📺':'tv','💳':'credit-card','🤝':'heart-handshake',
+  '💊':'pill','🎬':'clapperboard','📚':'graduation-cap','🧾':'receipt','✈️':'plane','📦':'package',
+  '🏦':'landmark','💵':'banknote','📱':'smartphone','👛':'wallet','💪':'dumbbell','🚭':'cigarette-off',
+  '🙏':'heart','🎯':'target','🎨':'palette','🎸':'guitar','💻':'laptop','🧹':'paintbrush','🌿':'leaf',
+  '☀️':'sun','❤️':'heart','🎁':'gift','⚽':'volleyball','🐕':'dog','👶':'baby','💼':'briefcase'
+};
+function iconName(v) {
+  if (!v) return 'circle-check-big';
+  if (/^[a-z0-9-]+$/.test(v)) return v;          // already a lucide name
+  return EMOJI_TO_ICON[v] || 'sparkles';          // legacy emoji → mapped
+}
+function ic(v) { return `<i data-lucide="${iconName(v)}"></i>`; }
+function refreshIcons() {
+  if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch (_) {} }
 }
 
 function toast(msg) {
@@ -52,7 +65,7 @@ function toast(msg) {
 function confetti() {
   const cv = $('confetti'), ctx = cv.getContext('2d');
   cv.width = innerWidth; cv.height = innerHeight;
-  const colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
+  const colors = ['#50A65C', '#3E8A4A', '#232323', '#F8FAED', '#7FC287'];
   const parts = Array.from({ length: 90 }, () => ({
     x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.4,
     vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 4,
@@ -74,41 +87,41 @@ function confetti() {
 
 /* ---------- seed data (PRD defaults) ---------- */
 const SEED_ACCOUNTS = [
-  { name: 'Bank 1', type: 'bank', icon: '🏦' },
-  { name: 'Bank 2', type: 'bank', icon: '🏦' },
-  { name: 'Bank 3', type: 'bank', icon: '🏦' },
-  { name: 'Cash', type: 'cash', icon: '💵' }
+  { name: 'Bank 1', type: 'bank', icon: 'landmark' },
+  { name: 'Bank 2', type: 'bank', icon: 'landmark' },
+  { name: 'Bank 3', type: 'bank', icon: 'landmark' },
+  { name: 'Cash', type: 'cash', icon: 'banknote' }
 ];
 const SEED_CATEGORIES = [
-  { name: 'Home & Utilities', icon: '🏠', color: '#6366f1', monthly_budget: 0 },
-  { name: 'Grocery', icon: '🛒', color: '#10b981', monthly_budget: 0 },
-  { name: 'Food & Dining', icon: '🍽️', color: '#f59e0b', monthly_budget: 0 },
-  { name: 'Transport', icon: '🚗', color: '#3b82f6', monthly_budget: 0 },
-  { name: 'Shopping', icon: '🛍️', color: '#ec4899', monthly_budget: 0 },
-  { name: 'Personal Use', icon: '🧴', color: '#8b5cf6', monthly_budget: 0 },
-  { name: 'Subscriptions', icon: '📺', color: '#ef4444', monthly_budget: 0 },
-  { name: 'Online Payments', icon: '💳', color: '#06b6d4', monthly_budget: 0 },
-  { name: 'Given to Someone', icon: '🤝', color: '#f97316', monthly_budget: 0 },
-  { name: 'Health', icon: '💊', color: '#84cc16', monthly_budget: 0 },
-  { name: 'Entertainment', icon: '🎬', color: '#a855f7', monthly_budget: 0 },
-  { name: 'Education', icon: '📚', color: '#0ea5e9', monthly_budget: 0 },
-  { name: 'Bills & EMI', icon: '🧾', color: '#64748b', monthly_budget: 0 },
-  { name: 'Travel', icon: '✈️', color: '#14b8a6', monthly_budget: 0 },
-  { name: 'Others', icon: '📦', color: '#9ca3af', monthly_budget: 0 }
+  { name: 'Home & Utilities', icon: 'house', color: '#50A65C', monthly_budget: 0 },
+  { name: 'Grocery', icon: 'shopping-cart', color: '#3E8A4A', monthly_budget: 0 },
+  { name: 'Food & Dining', icon: 'utensils', color: '#7FC287', monthly_budget: 0 },
+  { name: 'Transport', icon: 'car', color: '#2F6E3B', monthly_budget: 0 },
+  { name: 'Shopping', icon: 'shopping-bag', color: '#A3CDA6', monthly_budget: 0 },
+  { name: 'Personal Use', icon: 'sparkles', color: '#5FB56C', monthly_budget: 0 },
+  { name: 'Subscriptions', icon: 'tv', color: '#232323', monthly_budget: 0 },
+  { name: 'Online Payments', icon: 'credit-card', color: '#456B49', monthly_budget: 0 },
+  { name: 'Given to Someone', icon: 'heart-handshake', color: '#8FBF95', monthly_budget: 0 },
+  { name: 'Health', icon: 'pill', color: '#67A870', monthly_budget: 0 },
+  { name: 'Entertainment', icon: 'clapperboard', color: '#3B3B3B', monthly_budget: 0 },
+  { name: 'Education', icon: 'graduation-cap', color: '#2C8547', monthly_budget: 0 },
+  { name: 'Bills & EMI', icon: 'receipt', color: '#556B57', monthly_budget: 0 },
+  { name: 'Travel', icon: 'plane', color: '#74B37E', monthly_budget: 0 },
+  { name: 'Others', icon: 'package', color: '#9BA89C', monthly_budget: 0 }
 ];
 const SEED_HABITS = [
-  { name: 'Wake up early', icon: '🌅', type: 'yesno', target: 1, unit: '', reminder_time: '06:00', schedule: [] },
-  { name: 'Exercise / walk', icon: '🏃', type: 'duration', target: 30, unit: 'min', reminder_time: '07:00', schedule: [] },
-  { name: 'Drink water', icon: '💧', type: 'quantity', target: 8, unit: 'glasses', reminder_time: '12:00', schedule: [] },
-  { name: 'Journal / plan day', icon: '📝', type: 'yesno', target: 1, unit: '', reminder_time: '09:00', schedule: [] },
-  { name: 'No junk food', icon: '🍔', type: 'yesno', target: 1, unit: '', reminder_time: '20:00', schedule: [] },
-  { name: 'Read', icon: '📖', type: 'duration', target: 20, unit: 'min', reminder_time: '21:30', schedule: [] },
-  { name: 'Meditate', icon: '🧘', type: 'duration', target: 10, unit: 'min', reminder_time: '22:00', schedule: [] },
-  { name: 'Sleep by 11 PM', icon: '😴', type: 'yesno', target: 1, unit: '', reminder_time: '22:45', schedule: [] }
+  { name: 'Wake up early', icon: 'sunrise', type: 'yesno', target: 1, unit: '', reminder_time: '06:00', schedule: [] },
+  { name: 'Exercise / walk', icon: 'dumbbell', type: 'duration', target: 30, unit: 'min', reminder_time: '07:00', schedule: [] },
+  { name: 'Drink water', icon: 'glass-water', type: 'quantity', target: 8, unit: 'glasses', reminder_time: '12:00', schedule: [] },
+  { name: 'Journal / plan day', icon: 'notebook-pen', type: 'yesno', target: 1, unit: '', reminder_time: '09:00', schedule: [] },
+  { name: 'No junk food', icon: 'pizza', type: 'yesno', target: 1, unit: '', reminder_time: '20:00', schedule: [] },
+  { name: 'Read', icon: 'book-open', type: 'duration', target: 20, unit: 'min', reminder_time: '21:30', schedule: [] },
+  { name: 'Meditate', icon: 'flower-2', type: 'duration', target: 10, unit: 'min', reminder_time: '22:00', schedule: [] },
+  { name: 'Sleep by 11 PM', icon: 'bed-double', type: 'yesno', target: 1, unit: '', reminder_time: '22:45', schedule: [] }
 ];
-const EMOJIS = ['✅','🌅','🏃','💧','📝','🍔','📖','🧘','😴','💪','🚭','🙏','🎯','🎨','🎸','💻','🧹','🌿','☀️','❤️'];
-const CAT_EMOJIS = ['🏠','🛒','🍽️','🚗','🛍️','🧴','📺','💳','🤝','💊','🎬','📚','🧾','✈️','📦','🎁','⚽','🐕','👶','💼'];
-const ACC_EMOJIS = ['🏦','💵','📱','💳','👛'];
+const EMOJIS = ['circle-check-big','sunrise','dumbbell','glass-water','notebook-pen','pizza','book-open','flower-2','bed-double','footprints','cigarette-off','heart','target','palette','guitar','laptop','paintbrush','leaf','sun','brain'];
+const CAT_EMOJIS = ['house','shopping-cart','utensils','car','shopping-bag','sparkles','tv','credit-card','heart-handshake','pill','clapperboard','graduation-cap','receipt','plane','package','gift','volleyball','dog','baby','briefcase'];
+const ACC_EMOJIS = ['landmark','banknote','smartphone','credit-card','wallet'];
 
 /* ---------- state ---------- */
 let S = { habits: [], habit_logs: [], accounts: [], categories: [], expenses: [], recurring: [], settings: {} };
@@ -268,7 +281,7 @@ function render() {
   if (currentView === 'expenses') renderExpenses();
   if (currentView === 'settings') renderSettings();
   renderStreakBadge();
-  twemojify();
+  refreshIcons();
 }
 
 function renderStreakBadge() {
@@ -298,7 +311,7 @@ function renderToday() {
     row.className = 'habit-row' + (done ? ' done' : '');
     const sub = h.type === 'yesno' ? (h.reminder_time ? '⏰ ' + h.reminder_time : '') :
       `${val}/${h.target} ${h.unit} · ⏰ ${h.reminder_time || ''}`;
-    row.innerHTML = `<div class="habit-emoji">${h.icon}</div>
+    row.innerHTML = `<div class="habit-emoji">${ic(h.icon)}</div>
       <div class="habit-info"><div class="habit-name">${h.name}</div><div class="habit-sub">${sub}</div></div>`;
     if (h.type === 'yesno') {
       const btn = document.createElement('button');
@@ -355,10 +368,9 @@ function celebrate(h) {
   const { cur } = streaks(h);
   const streak = cur + 1;
   if (streak >= 3 && (streak % 5 === 0 || streak === 3 || streak === 7)) {
-    confetti(); toast(`${h.icon} ${streak} days strong! 🔥`);
+    confetti(); toast(`${streak} days strong! Keep the streak 🔥`);
   } else {
-    toast(`${h.icon} Done! Nice one 💪`);
-    if (streak >= 2) { /* small joy anyway */ }
+    toast(`Done! Nice one 💪`);
   }
 }
 
@@ -368,7 +380,7 @@ function renderQuickExpense() {
   S.accounts.forEach(a => {
     const c = document.createElement('button');
     c.className = 'chip' + (qeSelAccount === a.id ? ' on' : '');
-    c.textContent = `${a.icon} ${a.name}`;
+    c.innerHTML = `${ic(a.icon)} ${a.name}`;
     c.onclick = () => { qeSelAccount = a.id; renderQuickExpense(); };
     accWrap.appendChild(c);
   });
@@ -376,10 +388,11 @@ function renderQuickExpense() {
   S.categories.forEach(cat => {
     const c = document.createElement('div');
     c.className = 'cat-cell' + (qeSelCategory === cat.id ? ' on' : '');
-    c.innerHTML = `<span>${cat.icon}</span>${cat.name}`;
+    c.innerHTML = `<span>${ic(cat.icon)}</span>${cat.name}`;
     c.onclick = () => { qeSelCategory = cat.id; renderQuickExpense(); };
     catWrap.appendChild(c);
   });
+  refreshIcons();
 }
 
 function saveQuickExpense() {
@@ -404,18 +417,18 @@ function checkBudget(catId) {
   const spent = S.expenses.filter(e => e.category_id === catId && e.date.startsWith(m))
     .reduce((s, e) => s + Number(e.amount), 0);
   const pct = spent / cat.monthly_budget * 100;
-  if (pct >= 100) toast(`⚠️ ${cat.icon} ${cat.name} budget exceeded! (${fmtMoney(spent)})`);
-  else if (pct >= 80) toast(`⚠️ ${cat.icon} ${cat.name}: ${Math.round(pct)}% of budget used`);
+  if (pct >= 100) toast(`⚠️ ${cat.name} budget exceeded! (${fmtMoney(spent)})`);
+  else if (pct >= 80) toast(`⚠️ ${cat.name}: ${Math.round(pct)}% of budget used`);
 }
 
 function renderExpenseList(container, expenses) {
   container.innerHTML = '';
   const sorted = [...expenses].sort((a, b) => b.date.localeCompare(a.date));
   sorted.forEach(e => {
-    const cat = S.categories.find(c => c.id === e.category_id) || { icon: '📦', name: '?' };
+    const cat = S.categories.find(c => c.id === e.category_id) || { icon: 'package', name: '?' };
     const acc = S.accounts.find(a => a.id === e.account_id) || { name: '' };
     const row = document.createElement('div'); row.className = 'exp-row';
-    row.innerHTML = `<div class="exp-emoji">${cat.icon}</div>
+    row.innerHTML = `<div class="exp-emoji">${ic(cat.icon)}</div>
       <div class="exp-info"><div class="exp-cat">${cat.name}</div>
       <div class="exp-note">${e.date} · ${acc.name}${e.note ? ' · ' + e.note : ''}</div></div>
       <div class="exp-amt">${fmtMoney(e.amount)}</div>`;
@@ -449,7 +462,7 @@ function renderHabits() {
     type: 'bar',
     data: { labels: DOW, datasets: [{
       data: sched.map((s, i) => s ? Math.round(done[i] / s * 100) : 0),
-      backgroundColor: sched.map((s, i) => (s && done[i] / s < 0.5) ? '#ef4444' : '#10b981'),
+      backgroundColor: sched.map((s, i) => (s && done[i] / s < 0.5) ? '#B95C50' : '#50A65C'),
       borderRadius: 6 }] },
     options: { plugins: { legend: { display: false } },
       scales: { y: { max: 100, ticks: { callback: v => v + '%' } } } }
@@ -458,7 +471,7 @@ function renderHabits() {
     const st = streaks(h);
     const card = document.createElement('div'); card.className = 'habit-card';
     card.innerHTML = `<div class="habit-card-top">
-        <div class="habit-emoji">${h.icon}</div>
+        <div class="habit-emoji">${ic(h.icon)}</div>
         <div class="habit-info"><div class="habit-name">${h.name}</div>
           <div class="habit-sub">⏰ ${h.reminder_time || 'no reminder'} · ${(h.schedule||[]).length ? (h.schedule.map(d=>DOW[d]).join(' ')) : 'daily'}</div></div>
         <div class="pill">🔥 ${st.cur}</div></div>
@@ -497,7 +510,7 @@ function showHabitDetail(h) {
     <button class="btn-small" id="backToHabits">← Back</button>
     <div class="habit-card" style="margin-top:10px">
       <div class="habit-card-top">
-        <div class="habit-emoji">${h.icon}</div>
+        <div class="habit-emoji">${ic(h.icon)}</div>
         <div class="habit-info"><div class="habit-name">${h.name}</div>
         <div class="habit-sub">${h.type === 'yesno' ? 'Yes / No' : `Target: ${h.target} ${h.unit}`} · ⏰ ${h.reminder_time}</div></div>
       </div>
@@ -511,6 +524,7 @@ function showHabitDetail(h) {
         <button class="btn-small danger" id="deleteHabitBtn">Delete</button>
       </div>
     </div>`;
+  refreshIcons();
   $('backToHabits').onclick = () => renderHabits();
   $('editHabitBtn').onclick = () => habitModal(h);
   $('deleteHabitBtn').onclick = () => {
@@ -524,7 +538,7 @@ function showHabitDetail(h) {
 /* ----- habit add/edit modal ----- */
 function habitModal(h) {
   const isNew = !h;
-  h = h || { id: uuid(), name: '', icon: '✅', type: 'yesno', target: 1, unit: '', reminder_time: '20:00', schedule: [], archived: false };
+  h = h || { id: uuid(), name: '', icon: 'circle-check-big', type: 'yesno', target: 1, unit: '', reminder_time: '20:00', schedule: [], archived: false };
   let selIcon = h.icon, selDays = [...(h.schedule || [])];
   openModal(`
     <h3>${isNew ? 'New habit' : 'Edit habit'}</h3>
@@ -548,10 +562,12 @@ function habitModal(h) {
     </div>`);
   const iconWrap = $('mh_icons');
   EMOJIS.forEach(em => {
-    const b = document.createElement('span'); b.className = 'emoji-opt' + (em === selIcon ? ' on' : ''); b.textContent = em;
-    b.onclick = () => { selIcon = em; iconWrap.querySelectorAll('.emoji-opt').forEach(x => x.classList.toggle('on', x.textContent === em)); };
+    const b = document.createElement('span'); b.className = 'emoji-opt' + (em === iconName(selIcon) ? ' on' : '');
+    b.innerHTML = ic(em); b.dataset.icon = em;
+    b.onclick = () => { selIcon = em; iconWrap.querySelectorAll('.emoji-opt').forEach(x => x.classList.toggle('on', x.dataset.icon === em)); };
     iconWrap.appendChild(b);
   });
+  refreshIcons();
   const dayWrap = $('mh_days');
   DOW.forEach((d, i) => {
     const b = document.createElement('div'); b.className = 'day-opt' + (selDays.includes(i) ? ' on' : ''); b.textContent = d[0];
@@ -596,7 +612,7 @@ function renderExpenses() {
   }
   drawChart('chartDaily', {
     type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: '#6366f1', borderRadius: 6 }] },
+    data: { labels, datasets: [{ data, backgroundColor: '#50A65C', borderRadius: 6 }] },
     options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 8 } } } }
   });
 
@@ -609,7 +625,7 @@ function renderExpenses() {
     data: {
       labels: catIds.map(id => { const c = S.categories.find(x => x.id === id); return c ? `${c.icon} ${c.name}` : '?'; }),
       datasets: [{ data: catIds.map(id => byCat[id]),
-        backgroundColor: catIds.map(id => (S.categories.find(x => x.id === id) || {}).color || '#9ca3af') }]
+        backgroundColor: catIds.map(id => (S.categories.find(x => x.id === id) || {}).color || '#9BA89C') }]
     },
     options: { plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } } } }
   });
@@ -634,7 +650,7 @@ function renderExpenses() {
   S.accounts.forEach(a => {
     const t = list.filter(e => e.account_id === a.id).reduce((s, e) => s + Number(e.amount), 0);
     const el = document.createElement('div'); el.className = 'setting-row';
-    el.innerHTML = `<span>${a.icon}</span><span class="grow">${a.name}</span><b>${fmtMoney(t)}</b>`;
+    el.innerHTML = `<span class="row-ic">${ic(a.icon)}</span><span class="grow">${a.name}</span><b>${fmtMoney(t)}</b>`;
     aWrap.appendChild(el);
   });
 
@@ -661,7 +677,7 @@ function renderSettings() {
   const aWrap = $('accountList'); aWrap.innerHTML = '';
   S.accounts.forEach(a => {
     const el = document.createElement('div'); el.className = 'setting-row';
-    el.innerHTML = `<span>${a.icon}</span><div class="grow">${a.name}<div class="sub">${a.type}</div></div>`;
+    el.innerHTML = `<span class="row-ic">${ic(a.icon)}</span><div class="grow">${a.name}<div class="sub">${a.type}</div></div>`;
     const edit = document.createElement('button'); edit.className = 'btn-small'; edit.textContent = '✏️';
     edit.onclick = () => accountModal(a);
     const del = document.createElement('button'); del.className = 'btn-small danger'; del.textContent = '✕';
@@ -673,7 +689,7 @@ function renderSettings() {
   const cWrap = $('categoryList'); cWrap.innerHTML = '';
   S.categories.forEach(c => {
     const el = document.createElement('div'); el.className = 'setting-row';
-    el.innerHTML = `<span>${c.icon}</span><div class="grow">${c.name}
+    el.innerHTML = `<span class="row-ic">${ic(c.icon)}</span><div class="grow">${c.name}
       <div class="sub">${c.monthly_budget ? 'Budget: ' + fmtMoney(c.monthly_budget) + '/mo' : 'no budget'}</div></div>`;
     const edit = document.createElement('button'); edit.className = 'btn-small'; edit.textContent = '✏️';
     edit.onclick = () => categoryModal(c);
@@ -685,9 +701,9 @@ function renderSettings() {
   // recurring
   const rWrap = $('recurringList'); rWrap.innerHTML = '';
   S.recurring.forEach(r => {
-    const cat = S.categories.find(c => c.id === r.category_id) || { icon: '📦' };
+    const cat = S.categories.find(c => c.id === r.category_id) || { icon: 'package' };
     const el = document.createElement('div'); el.className = 'setting-row';
-    el.innerHTML = `<span>${cat.icon}</span><div class="grow">${r.note || 'Recurring'}
+    el.innerHTML = `<span class="row-ic">${ic(cat.icon)}</span><div class="grow">${r.note || 'Recurring'}
       <div class="sub">${fmtMoney(r.amount)} on day ${r.day} of every month</div></div>`;
     const edit = document.createElement('button'); edit.className = 'btn-small'; edit.textContent = '✏️';
     edit.onclick = () => recurringModal(r);
@@ -708,8 +724,8 @@ function renderSettings() {
 function recurringModal(r) {
   const isNew = !r;
   r = r || { id: uuid(), note: '', amount: 0, day: 1, account_id: (S.accounts[0] || {}).id, category_id: (S.categories[0] || {}).id, last_posted: '' };
-  const accOpts = S.accounts.map(a => `<option value="${a.id}" ${a.id===r.account_id?'selected':''}>${a.icon} ${a.name}</option>`).join('');
-  const catOpts = S.categories.map(c => `<option value="${c.id}" ${c.id===r.category_id?'selected':''}>${c.icon} ${c.name}</option>`).join('');
+  const accOpts = S.accounts.map(a => `<option value="${a.id}" ${a.id===r.account_id?'selected':''}>${a.name}</option>`).join('');
+  const catOpts = S.categories.map(c => `<option value="${c.id}" ${c.id===r.category_id?'selected':''}>${c.name}</option>`).join('');
   openModal(`
     <h3>${isNew ? 'New recurring expense' : 'Edit recurring expense'}</h3>
     <label>Name</label><input id="mr_note" value="${r.note}" placeholder="e.g. Rent, Netflix">
@@ -735,7 +751,7 @@ function recurringModal(r) {
 
 function accountModal(a) {
   const isNew = !a;
-  a = a || { id: uuid(), name: '', type: 'bank', icon: '🏦' };
+  a = a || { id: uuid(), name: '', type: 'bank', icon: 'landmark' };
   let selIcon = a.icon;
   openModal(`
     <h3>${isNew ? 'New account' : 'Edit account'}</h3>
@@ -750,10 +766,12 @@ function accountModal(a) {
     <div class="modal-actions"><button class="btn-primary" id="ma_save">Save</button>
     <button class="btn-small" id="ma_cancel">Cancel</button></div>`);
   ACC_EMOJIS.forEach(em => {
-    const b = document.createElement('span'); b.className = 'emoji-opt' + (em === selIcon ? ' on' : ''); b.textContent = em;
-    b.onclick = () => { selIcon = em; $('ma_icons').querySelectorAll('.emoji-opt').forEach(x => x.classList.toggle('on', x.textContent === em)); };
+    const b = document.createElement('span'); b.className = 'emoji-opt' + (em === iconName(selIcon) ? ' on' : '');
+    b.innerHTML = ic(em); b.dataset.icon = em;
+    b.onclick = () => { selIcon = em; $('ma_icons').querySelectorAll('.emoji-opt').forEach(x => x.classList.toggle('on', x.dataset.icon === em)); };
     $('ma_icons').appendChild(b);
   });
+  refreshIcons();
   $('ma_cancel').onclick = closeModal;
   $('ma_save').onclick = () => {
     const name = $('ma_name').value.trim(); if (!name) { toast('Name?'); return; }
@@ -764,7 +782,7 @@ function accountModal(a) {
 
 function categoryModal(c) {
   const isNew = !c;
-  c = c || { id: uuid(), name: '', icon: '📦', color: '#6366f1', monthly_budget: 0 };
+  c = c || { id: uuid(), name: '', icon: 'package', color: '#50A65C', monthly_budget: 0 };
   let selIcon = c.icon;
   openModal(`
     <h3>${isNew ? 'New category' : 'Edit category'}</h3>
@@ -775,10 +793,12 @@ function categoryModal(c) {
     <div class="modal-actions"><button class="btn-primary" id="mc_save">Save</button>
     <button class="btn-small" id="mc_cancel">Cancel</button></div>`);
   CAT_EMOJIS.forEach(em => {
-    const b = document.createElement('span'); b.className = 'emoji-opt' + (em === selIcon ? ' on' : ''); b.textContent = em;
-    b.onclick = () => { selIcon = em; $('mc_icons').querySelectorAll('.emoji-opt').forEach(x => x.classList.toggle('on', x.textContent === em)); };
+    const b = document.createElement('span'); b.className = 'emoji-opt' + (em === iconName(selIcon) ? ' on' : '');
+    b.innerHTML = ic(em); b.dataset.icon = em;
+    b.onclick = () => { selIcon = em; $('mc_icons').querySelectorAll('.emoji-opt').forEach(x => x.classList.toggle('on', x.dataset.icon === em)); };
     $('mc_icons').appendChild(b);
   });
+  refreshIcons();
   $('mc_cancel').onclick = closeModal;
   $('mc_save').onclick = () => {
     const name = $('mc_name').value.trim(); if (!name) { toast('Name?'); return; }
@@ -791,7 +811,7 @@ function categoryModal(c) {
 }
 
 /* ---------- modal helpers ---------- */
-function openModal(html) { $('modalBox').innerHTML = html; $('modal').classList.remove('hidden'); setTimeout(() => twemojify($('modalBox')), 0); }
+function openModal(html) { $('modalBox').innerHTML = html; $('modal').classList.remove('hidden'); setTimeout(refreshIcons, 0); }
 function closeModal() { $('modal').classList.add('hidden'); }
 
 /* ---------- PIN lock ---------- */
