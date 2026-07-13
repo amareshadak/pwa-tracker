@@ -2,19 +2,29 @@
 
 Personal habit + expense tracker PWA. Works on iPhone and Android. Local-first (works offline), with optional Supabase backend for multi-user login, sync, and push notifications.
 
-## Try it right now (no setup)
+## Local development
 
-The app works immediately in **local-only mode** — data stays on the device, no login:
+The frontend is a Vite + TypeScript PWA. Supabase continues to provide authentication, sync, database storage, AI Edge Functions, and push delivery.
 
 ```bash
-cd pwa-tracker
-python3 -m http.server 8080
-# open http://localhost:8080
+npm install
+npm run dev
+# open http://localhost:8080/pwa-tracker/
 ```
 
-## Deploy (required for iPhone install — PWAs need HTTPS)
+Useful validation commands:
 
-Easiest: [Netlify Drop](https://app.netlify.com/drop) — drag this whole folder into the page, done. Or Vercel: `npx vercel`. You get a URL like `https://your-app.netlify.app`.
+```bash
+npm test
+npm run build
+npm run preview
+```
+
+## Deploy
+
+Merges to `main` are built and deployed to GitHub Pages by `.github/workflows/deploy-pages.yml`. Feature branches run tests and builds without replacing the live app.
+
+The static output is generated in `dist/`; no Node.js server is required in production.
 
 ## Install on iPhone
 
@@ -27,7 +37,7 @@ On Android, Chrome will offer "Install app" automatically.
 ## Supabase setup (login, sync, push) — ~20 minutes
 
 ### 1. Create project
-[supabase.com](https://supabase.com) → New project (free tier). Copy from **Project Settings → API**: the **Project URL** and **anon public key** into `config.js`.
+[supabase.com](https://supabase.com) → New project (free tier). Put the **Project URL** and **anon public key** in `.env.local` as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
 ### 2. Create tables
 SQL Editor → paste the contents of `supabase/schema.sql` → Run.
@@ -35,7 +45,7 @@ SQL Editor → paste the contents of `supabase/schema.sql` → Run.
 ### 3. Create users (max 5–10)
 Authentication → Users → **Add user** → enter email + password for yourself and each person.
 
-**Important:** also go to Authentication → Sign In / Up and turn **off** "Allow new users to sign up" — the anon key in config.js is publicly visible (that's normal and safe thanks to row-level security), but disabling self-signup ensures only users you create can log in.
+**Important:** also go to Authentication → Sign In / Up and turn **off** "Allow new users to sign up" — the browser key is public by design and data is protected by row-level security, while disabling self-signup ensures only users you create can log in.
 
 ### 4. Push notifications
 Generate VAPID keys (once, on your computer):
@@ -44,7 +54,7 @@ Generate VAPID keys (once, on your computer):
 npx web-push generate-vapid-keys
 ```
 
-- Put the **public key** into `config.js` → `VAPID_PUBLIC_KEY`.
+- Put the **public key** in `.env.local` as `VITE_VAPID_PUBLIC_KEY`.
 - Set secrets for the edge function (needs [Supabase CLI](https://supabase.com/docs/guides/cli)):
 
 ```bash
@@ -67,7 +77,7 @@ select cron.schedule('send-reminders', '*/5 * * * *', $$
 (Enable the `pg_net` extension under Database → Extensions if prompted.)
 
 ### 5. Redeploy + enable on phone
-Redeploy the folder (config.js changed), open the app **from the Home Screen icon**, sign in, then Settings → **Enable Push Notifications**.
+Run a new build/deployment, open the app **from the Home Screen icon**, sign in, then Settings → **Enable Push Notifications**.
 
 ### 6. AI quick-fill (optional)
 The expense sheet has an "Or type: 250 lunch swiggy hdfc" field that uses Gemini to prefill amount/category/account/note — you still review and tap **Add Expense** yourself, nothing auto-saves.
@@ -81,17 +91,20 @@ supabase functions deploy parse-expense
 
 (No `--no-verify-jwt` here — the platform checks the user is logged in before running it, so the free quota can't be hit by strangers.)
 
-## What's inside
+## Architecture
 
 ```
-index.html / styles.css / app.js   — the app (no build step)
-config.js                          — your Supabase keys go here
-manifest.webmanifest, sw.js, icons — PWA install + offline + push
-supabase/schema.sql                — tables + row-level security
-supabase/functions/send-reminders  — cron push sender (habit reminders,
-                                     missed-habit alerts, expense nudge)
-supabase/functions/parse-expense   — AI quick-fill for the expense sheet (Gemini)
+src/core/                 — typed config, dates, application state and persistence
+src/features/             — habits, expenses and tasks domain logic
+src/app.ts                — UI controller during incremental feature extraction
+src/styles.css            — application styles
+public/                   — manifest, icons and service worker
+supabase/migrations/      — versioned database changes
+supabase/functions/       — AI parsing and notification delivery
+.github/workflows/        — branch validation and main-only Pages deployment
 ```
+
+Public browser configuration lives in `src/core/config.ts` and can be overridden with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`, and `VITE_TIMEZONE`. Private credentials remain in Supabase Secrets.
 
 ## Notes
 

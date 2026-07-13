@@ -4,25 +4,33 @@
    ============================================================ */
 'use strict';
 
+import { createClient } from '@supabase/supabase-js';
+import Chart from 'chart.js/auto';
+import { createIcons, icons } from 'lucide';
+import type { AppState } from './core/types';
+import { AppStore } from './core/store';
+import { compareOptionalTimes, formatTime12, todayString } from './core/dates';
+import { config } from './core/config';
+import { findHabitLog, habitCompletion, habitStreaks, isHabitScheduled } from './features/habits/model';
+import { filterAndSortTasks, isTaskOverdue, type TaskFilter } from './features/tasks/model';
+import { searchExpenses } from './features/expenses/model';
+import { SyncEngine } from './core/sync';
+
+const supabase = { createClient };
+const lucide = { createIcons: () => createIcons({ icons }) };
+
 /* ---------- helpers ---------- */
-const $ = (id) => document.getElementById(id);
+const $ = (id: string): any => document.getElementById(id);
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() :
   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
   }));
-const todayStr = (d = new Date()) => {
-  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
-};
+const todayStr = todayString;
 const fmtMoney = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const esc = (v = '') => String(v).replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c]));
-const fmtTime = (hm) => {
-  if (!hm) return 'No time';
-  const [h, m] = hm.split(':').map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
-};
+const fmtTime = formatTime12;
 
 /* ---------- theme (light / dark / auto) ---------- */
 function isDark() {
@@ -34,7 +42,7 @@ function isDark() {
 function applyTheme() {
   const dark = isDark();
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  const meta = document.getElementById('themeColorMeta');
+  const meta = document.getElementById('themeColorMeta') as HTMLMetaElement | null;
   if (meta) meta.content = dark ? '#232323' : '#50A65C';
   if (typeof Chart !== 'undefined') {
     Chart.defaults.color = dark ? '#9AA294' : '#6B7A66';
@@ -130,79 +138,49 @@ const CAT_EMOJIS = ['house','shopping-cart','utensils','car','shopping-bag','spa
 const ACC_EMOJIS = ['landmark','banknote','smartphone','credit-card','wallet'];
 
 /* ---------- state ---------- */
-let S = { habits: [], habit_logs: [], accounts: [], categories: [], expenses: [], recurring: [], captures: [], tasks: [], settings: {} };
+const LS_KEY = 'dailytracker_v1';
+const store = new AppStore(LS_KEY);
+const S: AppState = store.state;
 let sb = null;          // supabase client
 let sessionUser = null; // supabase user
+let syncEngine: SyncEngine | null = null;
 let currentView = 'today';
 let expenseRange = 'week';
 let expenseSearch = '';
-let taskFilter = 'pending';
+let taskFilter: TaskFilter = 'pending';
 function applySearchFilter(list) {
-  if (!expenseSearch) return list;
-  const q = expenseSearch.toLowerCase();
-  return list.filter(e => {
-    const cat = S.categories.find(c => c.id === e.category_id);
-    const acc = S.accounts.find(a => a.id === e.account_id);
-    return `${cat ? cat.name : ''} ${acc ? acc.name : ''} ${e.note || ''}`.toLowerCase().includes(q);
-  });
+  return searchExpenses(list, expenseSearch, S.categories, S.accounts);
 }
 let charts = {};
 const captureAIState = new Map(); // capture id -> { status:'loading'|'error', message:string }
 
-const LS_KEY = 'dailytracker_v1';
-const QUEUE_KEY = 'dailytracker_queue';
-
-function saveLocal() { localStorage.setItem(LS_KEY, JSON.stringify(S)); }
-function loadLocal() {
-  try { const raw = localStorage.getItem(LS_KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch (_) {}
-}
+function loadLocal() { store.hydrate(); }
 
 /* ---------- sync (Supabase, optional) ---------- */
-const cfg = window.APP_CONFIG || {};
+const cfg = {
+  SUPABASE_URL: config.supabaseUrl,
+  SUPABASE_ANON_KEY: config.supabaseAnonKey,
+  VAPID_PUBLIC_KEY: config.vapidPublicKey,
+  TIMEZONE: config.timezone
+};
 const hasSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
 
 function queue(op) { // op: {table, type:'upsert'|'delete', row|id}
-  const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-  q.push(op); localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
-  flushQueue();
+  syncEngine?.enqueue(op);
 }
 async function flushQueue() {
-  if (!sb || !sessionUser || !navigator.onLine) return;
-  let q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-  while (q.length) {
-    const op = q[0];
-    try {
-      if (op.type === 'upsert') {
-        const row = Object.assign({}, op.row, { user_id: sessionUser.id });
-        const { error } = await sb.from(op.table).upsert(row);
-        if (error) throw error;
-      } else if (op.type === 'delete') {
-        const { error } = await sb.from(op.table).delete().eq('id', op.id);
-        if (error) throw error;
-      }
-      q.shift(); localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
-    } catch (e) { console.warn('sync retry later', e.message || e); break; }
-  }
+  await syncEngine?.flush();
   updateSyncStatus();
 }
 async function pullAll() {
-  if (!sb || !sessionUser) return;
   try {
-    const tables = ['habits', 'habit_logs', 'accounts', 'categories', 'expenses', 'recurring', 'captures', 'tasks'];
-    const results = await Promise.all(tables.map(t => sb.from(t).select('*')));
-    if (results.some(r => r.error)) throw results.find(r => r.error).error;
-    const [h, hl, a, c, e, rec, cap, tasks] = results.map(r => r.data);
-    // only replace if server actually has data OR local empty
-    if (h.length || a.length || c.length || !S.habits.length) {
-      S.habits = h; S.habit_logs = hl; S.accounts = a; S.categories = c; S.expenses = e; S.recurring = rec; S.captures = cap; S.tasks = tasks;
-    }
-    saveLocal();
+    await syncEngine?.pull();
   } catch (e) { console.warn('pull failed', e.message || e); }
 }
 function updateSyncStatus() {
   const el = $('syncStatus'); if (!el) return;
-  if (!hasSupabase) { el.textContent = 'Local-only mode. Add Supabase keys in config.js to enable sync + push.'; return; }
-  const pending = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]').length;
+  if (!hasSupabase) { el.textContent = 'Local-only mode. Add Vite Supabase environment variables to enable sync + push.'; return; }
+  const pending = syncEngine?.pendingCount() || 0;
   el.textContent = sessionUser
     ? (pending ? `Synced (${pending} pending)` : 'Synced with Supabase')
     : 'Not signed in';
@@ -210,15 +188,11 @@ function updateSyncStatus() {
 
 /* mutation helpers: write local + queue remote */
 function upsert(table, row) {
-  const arr = S[table];
-  const i = arr.findIndex(r => r.id === row.id);
-  if (i >= 0) arr[i] = row; else arr.push(row);
-  saveLocal();
+  store.upsert(table, row);
   if (hasSupabase) queue({ table, type: 'upsert', row });
 }
 function removeRow(table, id) {
-  S[table] = S[table].filter(r => r.id !== id);
-  saveLocal();
+  store.remove(table, id);
   if (hasSupabase) queue({ table, type: 'delete', id });
 }
 
@@ -231,12 +205,10 @@ function seedIfEmpty() {
 
 /* ---------- habit logic ---------- */
 function isScheduled(habit, date) {
-  const sch = habit.schedule || [];
-  if (!sch.length) return true; // daily
-  return sch.includes(date.getDay());
+  return isHabitScheduled(habit, date);
 }
 function logFor(habitId, dateStr) {
-  return S.habit_logs.find(l => l.habit_id === habitId && l.date === dateStr);
+  return findHabitLog(S.habit_logs, habitId, dateStr);
 }
 function setLog(habit, dateStr, value) {
   let log = logFor(habit.id, dateStr);
@@ -247,38 +219,11 @@ function setLog(habit, dateStr, value) {
   return log;
 }
 function streaks(habit) {
-  let cur = 0, best = 0, run = 0;
-  // walk back 365 days
-  for (let i = 0; i <= 365; i++) {
-    const d = daysAgo(i), ds = todayStr(d);
-    if (!isScheduled(habit, d)) continue;
-    const log = logFor(habit.id, ds);
-    const done = log && log.completed;
-    if (done) { run++; if (run > best) best = run; }
-    else { if (i === 0) { /* today not done yet — don't break */ } else run = 0; }
-    if (i === 0) cur = run;
-  }
-  // current streak = consecutive from today/yesterday backwards
-  cur = 0;
-  for (let i = 0; i <= 365; i++) {
-    const d = daysAgo(i), ds = todayStr(d);
-    if (!isScheduled(habit, d)) continue;
-    const log = logFor(habit.id, ds);
-    if (log && log.completed) cur++;
-    else { if (i === 0) continue; break; }
-  }
-  return { cur, best };
+  const result = habitStreaks(habit, S.habit_logs);
+  return { cur: result.current, best: result.best };
 }
 function completionPct(habit, days) {
-  let sched = 0, done = 0;
-  for (let i = 0; i < days; i++) {
-    const d = daysAgo(i);
-    if (!isScheduled(habit, d)) continue;
-    sched++;
-    const log = logFor(habit.id, todayStr(d));
-    if (log && log.completed) done++;
-  }
-  return sched ? Math.round(done / sched * 100) : 0;
+  return habitCompletion(habit, S.habit_logs, days);
 }
 
 /* ---------- views ---------- */
@@ -286,7 +231,7 @@ function switchView(v) {
   currentView = v;
   document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
   $('view-' + v).classList.remove('hidden');
-  document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  document.querySelectorAll<HTMLElement>('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
   render();
 }
 
@@ -314,7 +259,7 @@ let qeSelAccount = null, qeSelCategory = null;
 function renderToday() {
   const ds = todayStr();
   const todays = S.habits.filter(h => !h.archived && isScheduled(h, new Date()))
-    .sort((a, b) => (a.reminder_time || '99:99').localeCompare(b.reminder_time || '99:99'));
+    .sort((a, b) => compareOptionalTimes(a.reminder_time, b.reminder_time));
   const doneCount = todays.filter(h => { const l = logFor(h.id, ds); return l && l.completed; }).length;
   $('sumHabits').textContent = `${doneCount}/${todays.length}`;
   const todayExp = S.expenses.filter(e => e.date === ds);
@@ -461,10 +406,9 @@ function renderTasks() {
   const wrap = $('taskList'); if (!wrap) return;
   wrap.innerHTML = '';
   const nowKey = `${todayStr()} ${new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Asia/Kolkata' })}`;
-  const tasks = (S.tasks || []).filter(t => taskFilter === 'all' || (taskFilter === 'completed' ? t.status === 'completed' : t.status === 'pending'))
-    .sort((a, b) => `${a.due_date || '9999'} ${a.due_time || '99:99'}`.localeCompare(`${b.due_date || '9999'} ${b.due_time || '99:99'}`));
+  const tasks = filterAndSortTasks(S.tasks || [], taskFilter);
   tasks.forEach(t => {
-    const overdue = t.status === 'pending' && t.due_date && `${t.due_date} ${t.due_time || '23:59'}` < nowKey;
+    const overdue = isTaskOverdue(t, nowKey);
     const row = document.createElement('div'); row.className = `task-row${overdue ? ' overdue' : ''}${t.status === 'completed' ? ' done' : ''}`;
     const check = document.createElement('button'); check.className = 'task-check'; check.innerHTML = t.status === 'completed' ? ic('check') : '';
     check.onclick = () => { const complete = t.status !== 'completed'; upsert('tasks', Object.assign({}, t, { status: complete ? 'completed' : 'pending', completed_at: complete ? new Date().toISOString() : null })); renderTasks(); };
@@ -647,7 +591,7 @@ function renderHabits() {
     options: { plugins: { legend: { display: false } },
       scales: { y: { max: 100, ticks: { callback: v => v + '%' } } } }
   });
-  S.habits.filter(h => !h.archived).sort((a,b) => (a.reminder_time || '99:99').localeCompare(b.reminder_time || '99:99')).forEach(h => {
+  S.habits.filter(h => !h.archived).sort((a,b) => compareOptionalTimes(a.reminder_time, b.reminder_time)).forEach(h => {
     const st = streaks(h);
     const card = document.createElement('div'); card.className = 'habit-card';
     card.innerHTML = `<div class="habit-card-top">
@@ -1023,7 +967,7 @@ function openModal(html) { $('modalBox').innerHTML = html; $('modal').classList.
 function closeModal() { $('modal').classList.add('hidden'); }
 
 /* styled in-app confirm (replaces browser confirm()) */
-function confirmDlg(msg, actionLabel) {
+function confirmDlg(msg, actionLabel = 'Delete') {
   return new Promise((resolve) => {
     openModal(`
       <div class="confirm-ic">${ic('trash-2')}</div>
@@ -1098,7 +1042,7 @@ function pinFlow(mode, onOk) { // mode: 'enter'|'set'
   forgotBtn.classList.toggle('hidden', mode !== 'enter');
   forgotBtn.onclick = async () => {
     if (await confirmDlg('Reset PIN? Removes the lock — set a new PIN from Settings.', 'Reset')) {
-      S.settings.pin = null; saveLocal();
+      store.updateSettings({ pin: null });
       scr.classList.add('hidden');
       onOk();
     }
@@ -1106,7 +1050,7 @@ function pinFlow(mode, onOk) { // mode: 'enter'|'set'
   const pad = $('pinPad'); pad.innerHTML = '';
   [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k => {
     const b = document.createElement('button');
-    if (k === '⌫') b.innerHTML = ic('delete'); else b.textContent = k;
+    if (k === '⌫') b.innerHTML = ic('delete'); else b.textContent = String(k);
     if (k === '') b.style.visibility = 'hidden';
     b.onclick = () => {
       if (entry.length === 4) return; // ignore taps while the 4th-digit check is pending
@@ -1172,10 +1116,10 @@ function download(filename, text, mime) {
 }
 function exportJSON() { download(`daily-tracker-${todayStr()}.json`, JSON.stringify(S, null, 2), 'application/json'); }
 function exportCSV() {
-  const rows = [['date','amount','category','account','note']];
+  const rows: Array<Array<string | number>> = [['date','amount','category','account','note']];
   S.expenses.forEach(e => {
-    const c = S.categories.find(x => x.id === e.category_id) || {};
-    const a = S.accounts.find(x => x.id === e.account_id) || {};
+    const c = S.categories.find(x => x.id === e.category_id);
+    const a = S.accounts.find(x => x.id === e.account_id);
     rows.push([e.date, e.amount, c.name || '', a.name || '', (e.note || '').replace(/,/g, ';')]);
   });
   download(`expenses-${todayStr()}.csv`, rows.map(r => r.join(',')).join('\n'), 'text/csv');
@@ -1185,7 +1129,7 @@ function importJSON(file) {
   const reader = new FileReader();
   reader.onload = async () => {
     let parsed;
-    try { parsed = JSON.parse(reader.result); } catch { toast('Invalid JSON file'); return; }
+    try { parsed = JSON.parse(String(reader.result)); } catch { toast('Invalid JSON file'); return; }
     const tables = ['habits', 'accounts', 'categories', 'expenses', 'recurring', 'habit_logs', 'captures', 'tasks'];
     const found = tables.filter(t => Array.isArray(parsed[t]) && parsed[t].length);
     if (!found.length) { toast('No recognizable data in file'); return; }
@@ -1213,6 +1157,7 @@ async function boot() {
 
   if (hasSupabase && typeof supabase !== 'undefined') {
     sb = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    syncEngine = new SyncEngine(sb, store, () => sessionUser);
     const { data: { session } } = await sb.auth.getSession();
     if (session) { sessionUser = session.user; await afterLogin(); }
     else showLogin();
@@ -1252,7 +1197,7 @@ function startApp() {
 }
 
 /* ---------- events ---------- */
-document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => switchView(b.dataset.view));
+document.querySelectorAll<HTMLElement>('.tabbar button').forEach(b => b.onclick = () => switchView(b.dataset.view));
 $('qeSave').onclick = saveQuickExpense;
 $('captureSaveBtn').onclick = addCapture;
 $('addTaskBtn').onclick = () => taskModal(null);
@@ -1283,18 +1228,18 @@ $('expenseSearch').oninput = (e) => {
 };
 $('pinToggleBtn').onclick = async () => {
   if (S.settings.pin) {
-    if (await confirmDlg('Remove PIN lock?', 'Remove')) { S.settings.pin = null; saveLocal(); renderSettings(); toast('PIN removed'); }
+    if (await confirmDlg('Remove PIN lock?', 'Remove')) { store.updateSettings({ pin: null }); renderSettings(); toast('PIN removed'); }
   } else {
-    pinFlow('set', (pin) => { S.settings.pin = pin; saveLocal(); renderSettings(); toast('PIN set'); });
+    pinFlow('set', (pin) => { store.updateSettings({ pin: String(pin) }); renderSettings(); toast('PIN set'); });
   }
 };
 $('logoutBtn').onclick = async () => {
   if (sb) await sb.auth.signOut();
-  localStorage.removeItem(LS_KEY); localStorage.removeItem(QUEUE_KEY);
+  store.clear(); syncEngine?.clear();
   location.reload();
 };
 $('themeSeg').querySelectorAll('button').forEach(b => b.onclick = () => {
-  S.settings.theme = b.dataset.t; saveLocal();
+  store.updateSettings({ theme: b.dataset.t });
   applyTheme(); render();
 });
 $('expenseRange').querySelectorAll('button').forEach(b => b.onclick = () => {

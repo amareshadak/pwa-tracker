@@ -1,11 +1,6 @@
 /* Daily Tracker — service worker: offline cache + web push */
-const CACHE = 'daily-tracker-v8';
+const CACHE = 'daily-tracker-v9-vite';
 const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './config.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -27,12 +22,23 @@ self.addEventListener('activate', (e) => {
 });
 
 // Stale-while-revalidate: serve from cache instantly, refresh cache in the
-// background so re-uploaded files (e.g. config.js) apply on the next open.
+// background so updated hashed Vite assets remain available offline.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   const cacheable = url.origin === location.origin || CDN_HOSTS.includes(url.hostname);
   if (!cacheable) return;
+  // Always check the network for navigations so an installed iPhone PWA does
+  // not remain pinned to an old Vite index and hashed asset references.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(async (res) => {
+        if (res.ok) (await caches.open(CACHE)).put('./', res.clone());
+        return res;
+      }).catch(async () => (await caches.open(CACHE)).match('./'))
+    );
+    return;
+  }
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const cached = await cache.match(e.request);
