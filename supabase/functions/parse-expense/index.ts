@@ -18,18 +18,24 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const GEMINI_MODEL = "gemini-3-flash-preview";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
 const TZ = "Asia/Kolkata";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const jsonError = (status: number, code: string, message: string) =>
   new Response(JSON.stringify({ error: code, message }), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
 interface Ref { id: string; name: string; }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
+    return jsonError(405, "METHOD_NOT_ALLOWED", "POST only");
   }
   if (!GEMINI_KEY) {
     return jsonError(500, "AI_NOT_CONFIGURED", "AI is not configured");
@@ -43,22 +49,22 @@ Deno.serve(async (req) => {
   );
   const { data: userData, error: userErr } = await supabaseAuth.auth.getUser();
   if (userErr || !userData?.user) {
-    return new Response(JSON.stringify({ error: "Sign in required" }), { status: 401 });
+    return jsonError(401, "AUTH_REQUIRED", "Sign in required");
   }
 
   let body: { text?: string; categories?: Ref[]; accounts?: Ref[] };
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Bad JSON" }), { status: 400 });
+    return jsonError(400, "BAD_JSON", "Invalid request");
   }
 
   const text = (body.text || "").trim();
   const categories = body.categories || [];
   const accounts = body.accounts || [];
-  if (!text) return new Response(JSON.stringify({ error: "Missing text" }), { status: 400 });
+  if (!text) return jsonError(400, "MISSING_TEXT", "Missing text");
   if (!categories.length || !accounts.length) {
-    return new Response(JSON.stringify({ error: "Missing categories/accounts" }), { status: 400 });
+    return jsonError(400, "MISSING_REFERENCES", "Missing categories or accounts");
   }
 
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date()); // YYYY-MM-DD
@@ -124,5 +130,5 @@ Deno.serve(async (req) => {
     return jsonError(502, "AI_INVALID_RESPONSE", "AI returned an invalid result");
   }
 
-  return new Response(JSON.stringify(parsed), { headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
