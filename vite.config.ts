@@ -3,7 +3,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [tailwindcss()],
-  base: '/pwa-tracker/',
+  base: process.env.VITE_BASE_PATH || '/pwa-tracker/',
   build: {
     sourcemap: true,
     target: 'es2022',
