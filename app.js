@@ -140,6 +140,7 @@ function applySearchFilter(list) {
   });
 }
 let charts = {};
+const captureAIState = new Map(); // capture id -> { status:'loading'|'error', message:string }
 
 const LS_KEY = 'dailytracker_v1';
 const QUEUE_KEY = 'dailytracker_queue';
@@ -364,9 +365,22 @@ function renderCaptures() {
   wrap.innerHTML = '';
   const items = (S.captures || []).filter(c => c.status === 'inbox').sort((a, b) => b.created_at.localeCompare(a.created_at));
   items.forEach(c => {
+    const aiState = captureAIState.get(c.id);
     const el = document.createElement('div'); el.className = 'capture-row';
-    el.innerHTML = `<div class="capture-body"><div class="capture-text">${c.raw_text}</div>
-      <div class="capture-ai">${c.ai_summary ? ic('sparkles') + c.ai_summary : ic('loader-circle') + 'thinking…'}</div></div>`;
+    const body = document.createElement('div'); body.className = 'capture-body';
+    const text = document.createElement('div'); text.className = 'capture-text'; text.textContent = c.raw_text;
+    const ai = document.createElement('div'); ai.className = 'capture-ai';
+    if (c.ai_summary) {
+      ai.innerHTML = ic('sparkles'); ai.append(document.createTextNode(c.ai_summary));
+    } else if (aiState?.status === 'error') {
+      ai.classList.add('error');
+      ai.innerHTML = ic('circle-alert'); ai.append(document.createTextNode(aiState.message));
+      const retry = document.createElement('button'); retry.className = 'capture-retry'; retry.textContent = 'Retry';
+      retry.onclick = () => processCaptureAI(c); ai.appendChild(retry);
+    } else {
+      ai.innerHTML = ic('loader-circle'); ai.append(document.createTextNode('thinking…'));
+    }
+    body.append(text, ai); el.appendChild(body);
     const done = document.createElement('button'); done.className = 'capture-done'; done.innerHTML = ic('check');
     done.onclick = () => { upsert('captures', Object.assign({}, c, { status: 'done' })); renderCaptures(); };
     const del = document.createElement('button'); del.className = 'capture-del'; del.innerHTML = ic('x');
@@ -389,13 +403,24 @@ function addCapture() {
 }
 
 async function processCaptureAI(row) {
-  if (!hasSupabase || !sb || !sessionUser) return;
+  if (!hasSupabase || !sb || !sessionUser) {
+    captureAIState.set(row.id, { status: 'error', message: 'Sign in to use AI' });
+    renderCaptures(); return;
+  }
+  captureAIState.set(row.id, { status: 'loading', message: '' });
+  renderCaptures();
   try {
     const { data, error } = await sb.functions.invoke('parse-capture', { body: { text: row.raw_text } });
-    if (error || !data || data.error) return;
+    if (error) throw error;
+    if (!data || data.error) throw new Error(data?.message || data?.error || 'AI returned no result');
+    captureAIState.delete(row.id);
     upsert('captures', Object.assign({}, row, { ai_type: data.type || null, ai_summary: data.summary || null }));
     renderCaptures();
-  } catch (_) { /* best-effort — raw text is already saved either way */ }
+  } catch (e) {
+    console.error('capture AI failed', e);
+    captureAIState.set(row.id, { status: 'error', message: 'AI failed' });
+    renderCaptures();
+  }
 }
 
 /* ----- recurring expenses: auto-post monthly ----- */
@@ -941,7 +966,7 @@ async function aiFillExpense() {
       }
     });
     if (error) throw error;
-    if (data && data.error) throw new Error(data.error);
+    if (data && data.error) throw new Error(data.message || data.error);
 
     if (data.amount) $('qeAmount').value = data.amount;
     if (data.account_id && S.accounts.some(a => a.id === data.account_id)) qeSelAccount = data.account_id;

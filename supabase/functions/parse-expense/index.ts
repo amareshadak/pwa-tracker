@@ -15,9 +15,15 @@
 // =========================================================
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_MODEL = "gemini-3-flash-preview";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
 const TZ = "Asia/Kolkata";
+
+const jsonError = (status: number, code: string, message: string) =>
+  new Response(JSON.stringify({ error: code, message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 
 interface Ref { id: string; name: string; }
 
@@ -26,7 +32,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
   }
   if (!GEMINI_KEY) {
-    return new Response(JSON.stringify({ error: "GEMINI_API_KEY not configured" }), { status: 500 });
+    return jsonError(500, "AI_NOT_CONFIGURED", "AI is not configured");
   }
 
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -94,25 +100,28 @@ Deno.serve(async (req) => {
     );
   } catch (e) {
     console.error("Gemini fetch failed", e);
-    return new Response(JSON.stringify({ error: "AI request failed" }), { status: 502 });
+    return jsonError(502, "AI_UNAVAILABLE", "AI service is temporarily unavailable");
   }
 
   if (!res.ok) {
-    console.error("Gemini error", res.status, await res.text());
-    return new Response(JSON.stringify({ error: "AI request failed" }), { status: 502 });
+    const detail = await res.text();
+    console.error("Gemini error", res.status, detail);
+    const code = res.status === 429 ? "AI_QUOTA_EXCEEDED" : res.status === 404 ? "AI_MODEL_UNAVAILABLE" : "AI_UPSTREAM_ERROR";
+    const message = res.status === 429 ? "AI quota exceeded; try again later" : "AI service rejected the request";
+    return jsonError(res.status === 429 ? 429 : 502, code, message);
   }
 
   const data = await res.json();
   const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!raw) {
-    return new Response(JSON.stringify({ error: "No AI response" }), { status: 502 });
+    return jsonError(502, "AI_EMPTY_RESPONSE", "AI returned no result");
   }
 
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return new Response(JSON.stringify({ error: "Could not parse AI response" }), { status: 502 });
+    return jsonError(502, "AI_INVALID_RESPONSE", "AI returned an invalid result");
   }
 
   return new Response(JSON.stringify(parsed), { headers: { "Content-Type": "application/json" } });

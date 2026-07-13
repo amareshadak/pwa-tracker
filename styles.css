@@ -103,6 +103,8 @@ svg.lucide { width: 20px; height: 20px; stroke-width: 2; vertical-align: -0.22em
 .capture-text { font-size: .88rem; font-weight: 600; }
 .capture-ai { font-size: .72rem; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
 .capture-ai svg.lucide { width: 12px; height: 12px; }
+.capture-ai.error { color: #b42318; }
+.capture-retry { border: 0; padding: 0 2px; background: transparent; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .capture-done, .capture-del { border: none; background: none; color: var(--muted); opacity: .5;
   cursor: pointer; padding: 4px; flex-shrink: 0; }
 .capture-done svg.lucide, .capture-del svg.lucide { width: 16px; height: 16px; }
