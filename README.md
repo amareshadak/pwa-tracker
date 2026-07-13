@@ -94,10 +94,12 @@ supabase functions deploy parse-expense
 ## Architecture
 
 ```
-src/core/                 — typed config, dates, application state and persistence
-src/features/             — habits, expenses and tasks domain logic
-src/app.ts                — UI controller during incremental feature extraction
-src/styles.css            — application styles
+src/core/                 — typed config, dates, application state, persistence and sync
+src/features/*/view.ts    — feature-owned screen markup
+src/features/*/model.ts   — independently tested feature-domain logic
+src/ui/shell.ts           — composes global overlays, navigation and feature screens
+src/app.ts                — event and rendering controller
+src/styles.css            — Tailwind theme plus tracker component styles
 public/                   — manifest, icons and service worker
 supabase/migrations/      — versioned database changes
 supabase/functions/       — AI parsing and notification delivery
@@ -105,6 +107,8 @@ supabase/functions/       — AI parsing and notification delivery
 ```
 
 Public browser configuration lives in `src/core/config.ts` and can be overridden with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`, and `VITE_TIMEZONE`. Private credentials remain in Supabase Secrets.
+
+Tailwind CSS v4 is integrated through the official `@tailwindcss/vite` plugin. `index.html` contains only metadata, the root mount, and the TypeScript entrypoint; screen markup belongs to feature modules.
 
 ## Notes
 

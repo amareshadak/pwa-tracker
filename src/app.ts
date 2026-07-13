@@ -15,6 +15,10 @@ import { findHabitLog, habitCompletion, habitStreaks, isHabitScheduled } from '.
 import { filterAndSortTasks, isTaskOverdue, type TaskFilter } from './features/tasks/model';
 import { searchExpenses } from './features/expenses/model';
 import { SyncEngine } from './core/sync';
+import { mountApp } from './ui/shell';
+import './styles.css';
+
+mountApp(document.getElementById('root')!);
 
 const supabase = { createClient };
 const lucide = { createIcons: () => createIcons({ icons }) };

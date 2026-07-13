@@ -1,3 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --color-tracker-50: #f8faed;
+  --color-tracker-500: #50a65c;
+  --color-tracker-700: #2f6e3b;
+}
+
 /* Daily Tracker — palette: #232323 · #50A65C · #F8FAED */
 :root {
   --bg: #E4F0DC;

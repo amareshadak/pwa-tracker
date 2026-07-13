@@ -1,12 +1,11 @@
 /* Daily Tracker — service worker: offline cache + web push */
-const CACHE = 'daily-tracker-v9-vite';
+const CACHE = 'daily-tracker-v10-tailwind';
 const ASSETS = [
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png'
 ];
-const CDN_HOSTS = ['cdn.jsdelivr.net'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
@@ -26,7 +25,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  const cacheable = url.origin === location.origin || CDN_HOSTS.includes(url.hostname);
+  const cacheable = url.origin === location.origin;
   if (!cacheable) return;
   // Always check the network for navigations so an installed iPhone PWA does
   // not remain pinned to an old Vite index and hashed asset references.
