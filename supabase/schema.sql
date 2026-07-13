@@ -72,7 +72,23 @@ create table if not exists captures (
   raw_text text not null,
   ai_type text,          -- 'habit' | 'expense' | 'reminder' | 'note', set by parse-capture (best-effort)
   ai_summary text,
+  ai_data jsonb default '{}'::jsonb,
   status text not null default 'inbox' check (status in ('inbox','done','dismissed')),
+  created_at timestamptz default now()
+);
+alter table captures add column if not exists ai_data jsonb default '{}'::jsonb;
+
+create table if not exists tasks (
+  id uuid primary key,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  title text not null,
+  notes text default '',
+  due_date date,
+  due_time text,
+  status text not null default 'pending' check (status in ('pending','completed','dismissed')),
+  source_capture_id uuid references captures(id) on delete set null,
+  completed_at timestamptz,
+  reminder_sent_at timestamptz,
   created_at timestamptz default now()
 );
 
@@ -95,11 +111,12 @@ alter table expenses enable row level security;
 alter table recurring enable row level security;
 alter table push_subs enable row level security;
 alter table captures enable row level security;
+alter table tasks enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['habits','habit_logs','accounts','categories','expenses','recurring','push_subs','captures'] loop
+  foreach t in array array['habits','habit_logs','accounts','categories','expenses','recurring','push_subs','captures','tasks'] loop
     execute format('drop policy if exists "own rows" on %I', t);
     execute format(
       'create policy "own rows" on %I for all using (user_id = auth.uid()) with check (user_id = auth.uid())', t);
@@ -110,3 +127,4 @@ end $$;
 create index if not exists idx_habit_logs_user_date on habit_logs (user_id, date);
 create index if not exists idx_expenses_user_date on expenses (user_id, date);
 create index if not exists idx_captures_user_status on captures (user_id, status);
+create index if not exists idx_tasks_user_due on tasks (user_id, status, due_date, due_time);

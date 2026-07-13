@@ -109,6 +109,22 @@ svg.lucide { width: 20px; height: 20px; stroke-width: 2; vertical-align: -0.22em
   cursor: pointer; padding: 4px; flex-shrink: 0; }
 .capture-done svg.lucide, .capture-del svg.lucide { width: 16px; height: 16px; }
 
+/* tasks and reminders */
+.task-list { display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
+.task-row { display:flex; align-items:center; gap:10px; padding:11px 12px; background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); }
+.task-row.overdue { border-color:#b42318; }
+.task-row.done { opacity:.65; }
+.task-row.done .task-title { text-decoration:line-through; }
+.task-check { width:28px; height:28px; border-radius:50%; border:2px solid var(--primary); background:transparent; color:white; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.task-row.done .task-check { background:var(--primary); }
+.task-check svg { width:15px; }
+.task-body { flex:1; min-width:0; }
+.task-title { font-size:.9rem; font-weight:700; }
+.task-meta { font-size:.72rem; color:var(--muted); }
+.task-row.overdue .task-meta { color:#b42318; font-weight:700; }
+.task-edit { border:0; background:transparent; color:var(--muted); padding:5px; }
+.task-edit svg { width:16px; }
+
 /* habit rows */
 .habit-list { display: flex; flex-direction: column; gap: 10px; }
 .habit-row { display: flex; align-items: center; gap: 12px; background: var(--card);

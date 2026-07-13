@@ -16,6 +16,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const GEMINI_MODEL = "gemini-3-flash-preview";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
+const TZ = "Asia/Kolkata";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -63,9 +64,17 @@ Deno.serve(async (req) => {
     properties: {
       type: { type: "STRING", enum: ["habit", "expense", "reminder", "note"] },
       summary: { type: "STRING" },
+      due_date: { type: "STRING", nullable: true },
+      due_time: { type: "STRING", nullable: true },
+      amount: { type: "NUMBER", nullable: true },
+      habit_type: { type: "STRING", enum: ["yesno", "quantity", "duration"], nullable: true },
+      target: { type: "NUMBER", nullable: true },
+      unit: { type: "STRING", nullable: true },
     },
     required: ["type", "summary"],
   };
+
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
 
   const prompt =
     `A user quickly jotted down (typed or dictated) this thought in a personal habit+expense tracker app:\n` +
@@ -73,7 +82,10 @@ Deno.serve(async (req) => {
     `Classify it as one of: "habit" (something they want to start doing regularly), ` +
     `"expense" (money they spent or need to spend), "reminder" (a one-off task/thing to do), ` +
     `or "note" (a general idea that doesn't fit the others).\n` +
-    `Also give a short (under 8 words) cleaned-up summary/title for it.`;
+    `Today is ${today} in Asia/Kolkata. Also give a short cleaned-up summary/title. ` +
+    `For reminders extract due_date as YYYY-MM-DD and due_time as HH:MM (24-hour), using null when absent. ` +
+    `For expenses extract amount when stated. For habits infer habit_type, target, and unit. ` +
+    `Never invent a date, time, or amount that the user did not imply.`;
 
   let res: Response;
   try {

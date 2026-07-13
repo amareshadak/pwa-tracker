@@ -17,6 +17,12 @@ const todayStr = (d = new Date()) => {
 const fmtMoney = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const esc = (v = '') => String(v).replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c]));
+const fmtTime = (hm) => {
+  if (!hm) return 'No time';
+  const [h, m] = hm.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+};
 
 /* ---------- theme (light / dark / auto) ---------- */
 function isDark() {
@@ -124,12 +130,13 @@ const CAT_EMOJIS = ['house','shopping-cart','utensils','car','shopping-bag','spa
 const ACC_EMOJIS = ['landmark','banknote','smartphone','credit-card','wallet'];
 
 /* ---------- state ---------- */
-let S = { habits: [], habit_logs: [], accounts: [], categories: [], expenses: [], recurring: [], captures: [], settings: {} };
+let S = { habits: [], habit_logs: [], accounts: [], categories: [], expenses: [], recurring: [], captures: [], tasks: [], settings: {} };
 let sb = null;          // supabase client
 let sessionUser = null; // supabase user
 let currentView = 'today';
 let expenseRange = 'week';
 let expenseSearch = '';
+let taskFilter = 'pending';
 function applySearchFilter(list) {
   if (!expenseSearch) return list;
   const q = expenseSearch.toLowerCase();
@@ -181,13 +188,13 @@ async function flushQueue() {
 async function pullAll() {
   if (!sb || !sessionUser) return;
   try {
-    const tables = ['habits', 'habit_logs', 'accounts', 'categories', 'expenses', 'recurring', 'captures'];
+    const tables = ['habits', 'habit_logs', 'accounts', 'categories', 'expenses', 'recurring', 'captures', 'tasks'];
     const results = await Promise.all(tables.map(t => sb.from(t).select('*')));
     if (results.some(r => r.error)) throw results.find(r => r.error).error;
-    const [h, hl, a, c, e, rec, cap] = results.map(r => r.data);
+    const [h, hl, a, c, e, rec, cap, tasks] = results.map(r => r.data);
     // only replace if server actually has data OR local empty
     if (h.length || a.length || c.length || !S.habits.length) {
-      S.habits = h; S.habit_logs = hl; S.accounts = a; S.categories = c; S.expenses = e; S.recurring = rec; S.captures = cap;
+      S.habits = h; S.habit_logs = hl; S.accounts = a; S.categories = c; S.expenses = e; S.recurring = rec; S.captures = cap; S.tasks = tasks;
     }
     saveLocal();
   } catch (e) { console.warn('pull failed', e.message || e); }
@@ -306,13 +313,15 @@ let qeSelAccount = null, qeSelCategory = null;
 
 function renderToday() {
   const ds = todayStr();
-  const todays = S.habits.filter(h => !h.archived && isScheduled(h, new Date()));
+  const todays = S.habits.filter(h => !h.archived && isScheduled(h, new Date()))
+    .sort((a, b) => (a.reminder_time || '99:99').localeCompare(b.reminder_time || '99:99'));
   const doneCount = todays.filter(h => { const l = logFor(h.id, ds); return l && l.completed; }).length;
   $('sumHabits').textContent = `${doneCount}/${todays.length}`;
   const todayExp = S.expenses.filter(e => e.date === ds);
   $('sumSpend').textContent = fmtMoney(todayExp.reduce((s, e) => s + Number(e.amount), 0));
 
   renderCaptures();
+  renderTasks();
 
   // habit checklist
   const wrap = $('todayHabits'); wrap.innerHTML = '';
@@ -322,8 +331,8 @@ function renderToday() {
     const done = log && log.completed;
     const row = document.createElement('div');
     row.className = 'habit-row' + (done ? ' done' : '');
-    const sub = h.type === 'yesno' ? (h.reminder_time ? ic('clock') + ' ' + h.reminder_time : '') :
-      `${val}/${h.target} ${h.unit} · ${ic('clock')} ${h.reminder_time || ''}`;
+    const sub = h.type === 'yesno' ? (h.reminder_time ? ic('clock') + ' ' + fmtTime(h.reminder_time) : '') :
+      `${val}/${h.target} ${h.unit} · ${ic('clock')} ${fmtTime(h.reminder_time)}`;
     row.innerHTML = `<div class="habit-emoji">${ic(h.icon)}</div>
       <div class="habit-info"><div class="habit-name">${h.name}</div><div class="habit-sub">${sub}</div></div>`;
     if (h.type === 'yesno') {
@@ -381,14 +390,103 @@ function renderCaptures() {
       ai.innerHTML = ic('loader-circle'); ai.append(document.createTextNode('thinking…'));
     }
     body.append(text, ai); el.appendChild(body);
-    const done = document.createElement('button'); done.className = 'capture-done'; done.innerHTML = ic('check');
-    done.onclick = () => { upsert('captures', Object.assign({}, c, { status: 'done' })); renderCaptures(); };
+    const done = document.createElement('button'); done.className = 'capture-done';
+    done.innerHTML = c.ai_summary ? ic('arrow-right') : ic('check');
+    done.setAttribute('aria-label', c.ai_summary ? 'Review suggestion' : 'Mark done');
+    done.onclick = () => c.ai_summary ? reviewCapture(c) : processCaptureAI(c);
     const del = document.createElement('button'); del.className = 'capture-del'; del.innerHTML = ic('x');
     del.onclick = () => { removeRow('captures', c.id); renderCaptures(); };
     el.append(done, del);
     wrap.appendChild(el);
   });
   refreshIcons();
+}
+
+function reviewCapture(c) {
+  const data = c.ai_data || {};
+  const type = c.ai_type || 'note';
+  openModal(`
+    <h3>Review capture</h3>
+    <label>Convert to</label>
+    <select id="cr_type">
+      <option value="reminder" ${type==='reminder'?'selected':''}>Task / reminder</option>
+      <option value="habit" ${type==='habit'?'selected':''}>Habit</option>
+      <option value="expense" ${type==='expense'?'selected':''}>Expense</option>
+      <option value="note" ${type==='note'?'selected':''}>Note only</option>
+    </select>
+    <label>Title</label><input id="cr_title" value="${esc(c.ai_summary || c.raw_text)}">
+    <div id="cr_due">
+      <label>Due date</label><input id="cr_date" type="date" value="${esc(data.due_date || todayStr())}">
+      <label>Reminder time</label><input id="cr_time" type="time" value="${esc(data.due_time || '')}">
+    </div>
+    <div class="modal-actions"><button class="btn-primary" id="cr_save">Create</button><button class="btn-small" id="cr_cancel">Cancel</button></div>`);
+  const toggle = () => $('cr_due').classList.toggle('hidden', $('cr_type').value !== 'reminder');
+  $('cr_type').onchange = toggle; toggle();
+  $('cr_cancel').onclick = closeModal;
+  $('cr_save').onclick = () => convertCapture(c);
+}
+
+function convertCapture(c) {
+  const type = $('cr_type').value;
+  const title = $('cr_title').value.trim();
+  if (!title) { toast('Give it a title'); return; }
+  const data = c.ai_data || {};
+  if (type === 'reminder' || type === 'note') {
+    upsert('tasks', {
+      id: uuid(), title, notes: c.raw_text, status: 'pending',
+      due_date: type === 'reminder' ? ($('cr_date').value || null) : null,
+      due_time: type === 'reminder' ? ($('cr_time').value || null) : null,
+      source_capture_id: c.id, completed_at: null, reminder_sent_at: null,
+      created_at: new Date().toISOString()
+    });
+  } else if (type === 'habit') {
+    upsert('habits', {
+      id: uuid(), name: title, icon: 'circle-check-big', type: data.habit_type || 'yesno',
+      target: Number(data.target) || 1, unit: data.unit || '', reminder_time: data.due_time || '20:00',
+      schedule: [], archived: false
+    });
+  } else {
+    const amount = Number(data.amount) || 0;
+    if (!amount) { closeModal(); openSheet(); $('qeAiText').value = c.raw_text; aiFillExpense(); return; }
+    upsert('expenses', {
+      id: uuid(), amount, account_id: S.accounts[0]?.id || null, category_id: S.categories[0]?.id || null,
+      note: title, date: data.due_date || todayStr()
+    });
+  }
+  upsert('captures', Object.assign({}, c, { status: 'done' }));
+  closeModal(); toast(`${type === 'reminder' || type === 'note' ? 'Task' : type} created`); render();
+}
+
+function renderTasks() {
+  const wrap = $('taskList'); if (!wrap) return;
+  wrap.innerHTML = '';
+  const nowKey = `${todayStr()} ${new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Asia/Kolkata' })}`;
+  const tasks = (S.tasks || []).filter(t => taskFilter === 'all' || (taskFilter === 'completed' ? t.status === 'completed' : t.status === 'pending'))
+    .sort((a, b) => `${a.due_date || '9999'} ${a.due_time || '99:99'}`.localeCompare(`${b.due_date || '9999'} ${b.due_time || '99:99'}`));
+  tasks.forEach(t => {
+    const overdue = t.status === 'pending' && t.due_date && `${t.due_date} ${t.due_time || '23:59'}` < nowKey;
+    const row = document.createElement('div'); row.className = `task-row${overdue ? ' overdue' : ''}${t.status === 'completed' ? ' done' : ''}`;
+    const check = document.createElement('button'); check.className = 'task-check'; check.innerHTML = t.status === 'completed' ? ic('check') : '';
+    check.onclick = () => { const complete = t.status !== 'completed'; upsert('tasks', Object.assign({}, t, { status: complete ? 'completed' : 'pending', completed_at: complete ? new Date().toISOString() : null })); renderTasks(); };
+    const body = document.createElement('div'); body.className = 'task-body';
+    const title = document.createElement('div'); title.className = 'task-title'; title.textContent = t.title;
+    const meta = document.createElement('div'); meta.className = 'task-meta';
+    meta.textContent = t.due_date ? `${t.due_date}${t.due_time ? ' · ' + fmtTime(t.due_time) : ''}${overdue ? ' · Overdue' : ''}` : 'No due date';
+    body.append(title, meta);
+    const edit = document.createElement('button'); edit.className = 'task-edit'; edit.innerHTML = ic('pencil'); edit.onclick = () => taskModal(t);
+    row.append(check, body, edit); wrap.appendChild(row);
+  });
+  if (!tasks.length) wrap.innerHTML = '<p class="muted center small">No tasks in this view</p>';
+  refreshIcons();
+}
+
+function taskModal(task) {
+  const isNew = !task;
+  task = task || { id: uuid(), title:'', notes:'', due_date:todayStr(), due_time:'', status:'pending', source_capture_id:null, completed_at:null, reminder_sent_at:null, created_at:new Date().toISOString() };
+  openModal(`<h3>${isNew?'New task':'Edit task'}</h3><label>Title</label><input id="mt_title" value="${esc(task.title)}"><label>Notes</label><input id="mt_notes" value="${esc(task.notes)}"><label>Due date</label><input id="mt_date" type="date" value="${task.due_date || ''}"><label>Reminder time</label><input id="mt_time" type="time" value="${task.due_time || ''}"><div class="modal-actions"><button class="btn-primary" id="mt_save">Save</button><button class="btn-small" id="mt_cancel">Cancel</button>${isNew?'':'<button class="btn-small danger" id="mt_delete">Delete</button>'}</div>`);
+  $('mt_cancel').onclick = closeModal;
+  $('mt_save').onclick = () => { const title=$('mt_title').value.trim(); if(!title){toast('Give it a title');return;} upsert('tasks',Object.assign({},task,{title,notes:$('mt_notes').value.trim(),due_date:$('mt_date').value||null,due_time:$('mt_time').value||null,reminder_sent_at:null})); closeModal(); renderTasks(); toast('Task saved'); };
+  if (!isNew) $('mt_delete').onclick = async () => { if(await confirmDlg(`Delete "${task.title}"?`)){removeRow('tasks',task.id);closeModal();renderTasks();} };
 }
 
 function addCapture() {
@@ -414,7 +512,11 @@ async function processCaptureAI(row) {
     if (error) throw error;
     if (!data || data.error) throw new Error(data?.message || data?.error || 'AI returned no result');
     captureAIState.delete(row.id);
-    upsert('captures', Object.assign({}, row, { ai_type: data.type || null, ai_summary: data.summary || null }));
+    upsert('captures', Object.assign({}, row, {
+      ai_type: data.type || null,
+      ai_summary: data.summary || null,
+      ai_data: data
+    }));
     renderCaptures();
   } catch (e) {
     console.error('capture AI failed', e);
@@ -545,13 +647,13 @@ function renderHabits() {
     options: { plugins: { legend: { display: false } },
       scales: { y: { max: 100, ticks: { callback: v => v + '%' } } } }
   });
-  S.habits.filter(h => !h.archived).forEach(h => {
+  S.habits.filter(h => !h.archived).sort((a,b) => (a.reminder_time || '99:99').localeCompare(b.reminder_time || '99:99')).forEach(h => {
     const st = streaks(h);
     const card = document.createElement('div'); card.className = 'habit-card';
     card.innerHTML = `<div class="habit-card-top">
         <div class="habit-emoji">${ic(h.icon)}</div>
         <div class="habit-info"><div class="habit-name">${h.name}</div>
-          <div class="habit-sub">${ic('clock')} ${h.reminder_time || 'no reminder'} · ${(h.schedule||[]).length ? (h.schedule.map(d=>DOW[d]).join(' ')) : 'daily'}</div></div>
+          <div class="habit-sub">${ic('clock')} ${h.reminder_time ? fmtTime(h.reminder_time) : 'no reminder'} · ${(h.schedule||[]).length ? (h.schedule.map(d=>DOW[d]).join(' ')) : 'daily'}</div></div>
         <div class="pill pill-flame">${ic('flame')} ${st.cur}</div></div>
       <div class="streak-pills">
         <span class="pill">Best: ${st.best}</span>
@@ -590,7 +692,7 @@ function showHabitDetail(h) {
       <div class="habit-card-top">
         <div class="habit-emoji">${ic(h.icon)}</div>
         <div class="habit-info"><div class="habit-name">${h.name}</div>
-        <div class="habit-sub">${h.type === 'yesno' ? 'Yes / No' : `Target: ${h.target} ${h.unit}`} · ${ic('clock')} ${h.reminder_time}</div></div>
+        <div class="habit-sub">${h.type === 'yesno' ? 'Yes / No' : `Target: ${h.target} ${h.unit}`} · ${ic('clock')} ${fmtTime(h.reminder_time)}</div></div>
       </div>
       <div class="streak-pills">
         <span class="pill pill-flame">${ic('flame')} Current: ${st.cur}</span><span class="pill">${ic('trophy')} Best: ${st.best}</span>
@@ -1084,7 +1186,7 @@ function importJSON(file) {
   reader.onload = async () => {
     let parsed;
     try { parsed = JSON.parse(reader.result); } catch { toast('Invalid JSON file'); return; }
-    const tables = ['habits', 'accounts', 'categories', 'expenses', 'recurring', 'habit_logs', 'captures'];
+    const tables = ['habits', 'accounts', 'categories', 'expenses', 'recurring', 'habit_logs', 'captures', 'tasks'];
     const found = tables.filter(t => Array.isArray(parsed[t]) && parsed[t].length);
     if (!found.length) { toast('No recognizable data in file'); return; }
     const summary = found.map(t => `${t}: ${parsed[t].length}`).join(', ');
@@ -1153,6 +1255,12 @@ function startApp() {
 document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => switchView(b.dataset.view));
 $('qeSave').onclick = saveQuickExpense;
 $('captureSaveBtn').onclick = addCapture;
+$('addTaskBtn').onclick = () => taskModal(null);
+$('taskFilter').querySelectorAll('button').forEach(b => b.onclick = () => {
+  taskFilter = b.dataset.taskFilter;
+  $('taskFilter').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  renderTasks();
+});
 $('captureText').addEventListener('keydown', (e) => { if (e.key === 'Enter') addCapture(); });
 $('qeAiBtn').onclick = aiFillExpense;
 $('fab').onclick = openSheet;

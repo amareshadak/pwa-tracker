@@ -81,6 +81,21 @@ Deno.serve(async () => {
   const doneToday = (h: { id: string; user_id: string }) =>
     (logs ?? []).some((l) => l.habit_id === h.id && l.completed);
 
+  // Due tasks/reminders. reminder_sent_at makes delivery idempotent across cron retries.
+  const { data: dueTasks } = await supabase.from("tasks").select("*")
+    .eq("status", "pending").eq("due_date", date).is("reminder_sent_at", null);
+  for (const task of dueTasks ?? []) {
+    if (!task.due_time || toMin(task.due_time) > minutes) continue;
+    await sendTo(task.user_id, {
+      title: "Task reminder",
+      body: task.title,
+      tag: `task-${task.id}`,
+      url: "./#tasks",
+    });
+    await supabase.from("tasks").update({ reminder_sent_at: new Date().toISOString() }).eq("id", task.id);
+    sent++;
+  }
+
   // 1) per-habit reminders
   for (const h of habits ?? []) {
     if (!scheduledToday(h) || doneToday(h)) continue;
