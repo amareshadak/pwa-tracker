@@ -11,7 +11,7 @@ const expenseSheet = () => `<div id="expenseSheet" class="overlay sheet-overlay 
 
 export function appShell(): string {
   return `${lockScreen()}${loginScreen()}
-    <div id="app" class="hidden min-h-dvh">
+    <div id="app" class="hidden">
       <header class="app-header"><div><h1 id="greeting">Hello</h1><p class="muted" id="todayDate"></p></div><div class="header-badges"><span class="badge" id="streakBadge"><i data-lucide="flame"></i> 0</span></div></header>
       <main id="main">${todayView()}${habitsView()}${expensesView()}${settingsView()}</main>
       <button id="fab" aria-label="Add expense"><i data-lucide="plus"></i></button>

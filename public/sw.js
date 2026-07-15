@@ -1,5 +1,5 @@
 /* Daily Tracker — service worker: offline cache + web push */
-const CACHE = 'daily-tracker-v10-tailwind';
+const CACHE = 'daily-tracker-v11-tailwind-theme';
 const ASSETS = [
   './manifest.webmanifest',
   './icons/icon-192.png',

@@ -16,9 +16,11 @@ import { filterAndSortTasks, isTaskOverdue, type TaskFilter } from './features/t
 import { searchExpenses } from './features/expenses/model';
 import { SyncEngine } from './core/sync';
 import { mountApp } from './ui/shell';
+import { installTailwindStyles, applyTailwindStyles } from './ui/tailwind-styles';
 import './styles.css';
 
 mountApp(document.getElementById('root')!);
+installTailwindStyles(document);
 
 const supabase = { createClient };
 const lucide = { createIcons: () => createIcons({ icons }) };
@@ -71,7 +73,12 @@ function iconName(v) {
 }
 function ic(v) { return `<i data-lucide="${iconName(v)}"></i>`; }
 function refreshIcons() {
-  if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch (_) {} }
+  if (typeof lucide !== 'undefined') {
+    try {
+      lucide.createIcons();
+      applyTailwindStyles();
+    } catch (_) {}
+  }
 }
 
 function toast(msg) {

@@ -1,5 +1,5 @@
 export const todayView = () => `
-  <section id="view-today" class="view space-y-4">
+  <section id="view-today" class="view">
     <div class="summary-row">
       <div class="summary-card grad-a"><div class="summary-num" id="sumHabits">0/0</div><div class="summary-label">habits done</div></div>
       <div class="summary-card grad-b"><div class="summary-num" id="sumSpend">₹0</div><div class="summary-label">spent today</div></div>

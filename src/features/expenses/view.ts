@@ -1,5 +1,5 @@
 export const expensesView = () => `
-  <section id="view-expenses" class="view hidden space-y-4">
+  <section id="view-expenses" class="view hidden">
     <div class="seg" id="expenseRange"><button data-r="week" class="on">Week</button><button data-r="month">Month</button><button data-r="3m">3 Months</button></div>
     <div class="summary-row">
       <div class="summary-card grad-c"><div class="summary-num" id="expTotal">₹0</div><div class="summary-label" id="expTotalLabel">this week</div></div>

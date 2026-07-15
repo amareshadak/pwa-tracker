@@ -1,5 +1,5 @@
 export const settingsView = () => `
-  <section id="view-settings" class="view hidden space-y-4">
+  <section id="view-settings" class="view hidden">
     <h2 class="section-title">Appearance</h2><div class="seg" id="themeSeg"><button data-t="auto">Auto</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
     <h2 class="section-title">Notifications</h2><div class="card"><button class="btn-primary" id="enablePushBtn">Enable Push Notifications</button><p class="muted small" id="pushStatus"></p></div>
     <h2 class="section-title">Accounts (paid from)</h2><div id="accountList"></div><button class="btn-small" id="addAccountBtn">+ Add account</button>
