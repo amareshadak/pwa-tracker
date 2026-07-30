@@ -1,6 +1,7 @@
 /* ============================================================
    Daily Tracker — habits + expenses PWA
    Local-first (localStorage) with optional Supabase sync + push
+   v2.1 — Fix icon Tailwind styling after lucide.createIcons()
    ============================================================ */
 'use strict';
 
